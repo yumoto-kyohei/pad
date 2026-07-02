@@ -25,7 +25,8 @@ var colors = ['blue','green','red','light','dark','heart']
 	, shuffleInstead = false
 	, minimumMatched = 2
 	, minimumMatches = 2
-	, LIBRARY_KEY = 'puzzlePracticeBoards';
+	, LIBRARY_KEY = 'puzzlePracticeBoards'
+	, appMode = 'play';
 
 function hideUnit(obj) {
 	var link = document.getElementById(obj);
@@ -247,6 +248,13 @@ function toggle(item, command){
 	if (item == 'minimumCombo'){
 		minimumMatches = command;
 		displayOutput('Setting changed: Minimum combo is now '+(parseInt(command)+1)+'. <br />Sharing the board DOES NOT share this setting');
+	}
+	if (item == 'mode'){
+		appMode = command;
+		document.getElementById('modePlayBtn').classList.toggle('modebutton-active', appMode == 'play');
+		document.getElementById('modeEditBtn').classList.toggle('modebutton-active', appMode == 'edit');
+		document.body.classList.toggle('edit-mode', appMode == 'edit');
+		displayOutput(appMode == 'edit' ? 'Editモードに切り替えました(準備中)<br />' : 'Playモードに切り替えました<br />', 0);
 	}
 
 }
@@ -905,6 +913,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'randomizeMatchedOrbs') toggle('randomizeMatchedOrbs', modifier);
 	if (action == 'shuffleInstead') toggle('shuffleInstead', modifier);
 	if (action == 'minimumCombo') toggle('minimumCombo', modifier);
+	if (action == 'setmode') toggle('mode', modifier);
 
 }
 

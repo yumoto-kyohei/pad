@@ -19,7 +19,12 @@
 		<div style="float:left;line-height:25px;">Time: <span id="time"></span>&nbsp;</div>
 		<button onclick="requestAction('ctimer', 0)" id="image4" style="display:none" class="topbutton image4">Minus</button>
 		<button onclick="requestAction('ctimer', 1)" id="image5" style="display:none" class="topbutton image5">Plus</button>
-		<div style="float:right;line-height:25px">Puzzle Practice</div>
+		<div style="float:right;line-height:25px">
+			<span id="modeToggle">
+				<button onclick="requestAction('setmode', 'play')" id="modePlayBtn" class="modebutton modebutton-active">Play</button><button onclick="requestAction('setmode', 'edit')" id="modeEditBtn" class="modebutton">Edit</button>
+			</span>
+			<span id="appTitle">&nbsp;Puzzle Practice</span>
+		</div>
 	</div>
 	<div id="game">
 		<div id="board">
