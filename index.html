@@ -34,6 +34,11 @@
 			<div>Time: <span id="time">00.000s</span></div>
 		</div>
 		<div id="editPalette">
+			<div id="boardSizeButtons">
+				<button onclick="requestAction('setboardsize', '6x5')" id="size6x5Btn" class="modebutton modebutton-active">5&times;6</button>
+				<button onclick="requestAction('setboardsize', '5x4')" id="size5x4Btn" class="modebutton">4&times;5</button>
+				<button onclick="requestAction('setboardsize', '7x6')" id="size7x6Btn" class="modebutton">6&times;7</button>
+			</div>
 			<button class="paletteSwatch red" onclick="requestAction('selectpaint', 'red')" title="Red"></button>
 			<button class="paletteSwatch blue" onclick="requestAction('selectpaint', 'blue')" title="Blue"></button>
 			<button class="paletteSwatch green" onclick="requestAction('selectpaint', 'green')" title="Green"></button>
@@ -44,6 +49,7 @@
 			<button class="paletteSwatch poison" onclick="requestAction('selectpaint', 'poison')" title="Poison"></button>
 		</div>
 		<div id="board">
+			<div id="boardBg"></div>
 			<div id="arrowSurfaceC">
 				<canvas id="arrowSurface" width="540px" height="450px"></canvas>
 			</div>

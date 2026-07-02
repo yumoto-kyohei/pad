@@ -399,7 +399,32 @@ function checkField(){
 	return false;
 }
 
+var fallStepSpeed = 90;
+
+// Animates an element sliding into its new position using the FLIP
+// technique: since tiles are float-positioned (their on-screen spot is
+// implied by DOM order, not by top/left), a plain CSS transition on
+// position doesn't work. Instead we measure how far the element jumped,
+// counter it with an instant transform, then transition that transform
+// back to zero so the jump reads as a smooth slide.
+function animateFallStep(el, fromTop){
+	var toTop = el.getBoundingClientRect().top;
+	var delta = fromTop - toTop;
+	if (delta == 0) return;
+	el.style.transition = 'none';
+	el.style.transform = 'translateY(' + delta + 'px)';
+	void el.offsetWidth; // force reflow so the jump above isn't merged with the transition below
+	el.style.transition = 'transform ' + fallStepSpeed + 'ms linear';
+	el.style.transform = '';
+	setTimeout(function(){
+		el.style.transition = '';
+		el.style.transform = '';
+	}, fallStepSpeed);
+}
+
 function dropField(){
+	var falling = Array.prototype.filter.call(divs, function(el){ return el.getAttribute('tileColor') != 'black'; });
+	var beforeTops = falling.map(function(el){ return el.getBoundingClientRect().top; });
 	for(var f = 0; f < rows; f++){
 		for(var i = 0+f; i < rows*cols; i=i+rows){
 			if (i < rows*(cols-1)) {
@@ -414,7 +439,8 @@ function dropField(){
 			}
 		}
 	}
-	if (checkField()) timeOut.push(setTimeout(function () { dropField(); }, 100));
+	falling.forEach(function(el, idx){ animateFallStep(el, beforeTops[idx]); });
+	if (checkField()) timeOut.push(setTimeout(function () { dropField(); }, fallStepSpeed));
 	else requestAction('fielddropped');
 }
 
@@ -731,14 +757,14 @@ function debounce(fn, wait){
 // having to pinch-zoom. Everything else (drag math, canvas arrows, corner
 // blocks) already reads from `scale`, so keeping it in sync with the real
 // rendered size is enough to make the whole board responsive.
-function applyResponsiveLayout(){
+function applyResponsiveLayout(force){
 	var boardEl = document.getElementById('board');
 	if (!boardEl || divs.length == 0) return;
 	boardEl.style.aspectRatio = rows + ' / ' + cols;
 	var measuredWidth = boardEl.clientWidth;
 	if (!measuredWidth) return;
 	var newScale = Math.floor(measuredWidth / rows);
-	if (newScale < 1 || newScale == scale) return;
+	if (newScale < 1 || (newScale == scale && !force)) return;
 	scale = newScale;
 	boardEl.style.setProperty('--tile-size', scale + 'px');
 	var canvas = document.getElementById('arrowSurface');
@@ -752,6 +778,129 @@ function applyResponsiveLayout(){
 		  $( "#board" ).append( "<div class='cornerblock' style='left:"+((scale*i2)-(cornerspace/2))+"px;top:"+((scale*h2)-(cornerspace/2))+"px'></div>" );
 		}
 	}
+	bindCornerblockDroppable();
+}
+
+function bindCornerblockDroppable(){
+	$( ".cornerblock" ).droppable({
+		tolerance: "pointer",
+		over: function( event, ui ) {
+			var cornerblockcount = 0;
+			$( ".tile" ).each(function() {
+				if (cornerblockcount++<30) $(this).droppable('option', 'disabled', true);
+			});
+		},
+		out: function( event, ui ) {
+			var cornerblockcount = 0;
+			$( ".tile" ).each(function() {
+				if (cornerblockcount++<30) $(this).droppable('option', 'disabled', false);
+			});
+		}
+	});
+}
+
+// Rebuilds the tile grid from scratch: used at page load and whenever
+// the board dimensions change (Edit mode's size picker).
+function buildTiles(){
+	document.getElementById('tiles').innerHTML = '';
+	divs = [];
+	for (var i = 0; i < rows*cols; i++){
+		var randColor = randomColor();
+		divs[i] = document.createElement('div');
+		setTileAttribute(i, randColor, 1);
+		$('#tiles').append(divs[i]);
+	}
+}
+
+// Lays a bg1/bg2 checkerboard behind the tiles, one cell per board
+// position, sized via the same --tile-size custom property the tiles use
+// so it stays in sync with the board's responsive/edit-mode sizing.
+function buildBoardBackground(){
+	var bg = document.getElementById('boardBg');
+	if (!bg) return;
+	bg.innerHTML = '';
+	for (var i = 0; i < rows*cols; i++){
+		var x = i % rows, y = Math.floor(i / rows);
+		var cell = document.createElement('div');
+		cell.className = 'bgcell ' + (((x+y) % 2 == 0) ? 'bg1' : 'bg2');
+		bg.appendChild(cell);
+	}
+}
+
+// (Re)binds jQuery UI draggable/droppable to the current .tile elements.
+// Must be called again after buildTiles() since jQuery UI widgets only
+// attach to elements that exist at the time it's called.
+function bindTileDragDrop(){
+	$( ".tile" ).draggable({
+		refreshPositions:"true",
+		containment: "#board",
+		helper: "clone",
+		opacity: 0.8,
+		start:function( event, ui ){
+			$(this).css({ opacity:0.2 });
+			clearMemory('arrows');
+			replayMoveSet=[];
+		},
+		stop:function( event, ui ){
+			$(this).css({ opacity:1 });
+			if (changeTheWorldOn == 0 && measureOn == 1) {
+				lastMeasuredTime = x.time();
+			}
+			requestAction('solve', 1);
+		},
+		cursorAt: { top: scale/2, left: scale/2 }
+	});
+	$( ".tile" ).droppable({
+		accept: ".tile",
+		over: function( event, ui ){
+			var draggable = ui.draggable, droppable = $(this);
+			var firstSwap = (swapHasHappened == 0);
+			if (skyFall == 1 && swapHasHappened == 0) saveBoardState();
+			draggable.swap(droppable, 2);
+			swapHasHappened = 1;
+			// The timer (制限/計測) starts on the first actual swap, not
+			// when the drop is first picked up.
+			if (firstSwap && changeTheWorldOn == 0) {
+				if (timerOn == 1) {
+					timeOut.push(setTimeout(function(){ $(document).trigger("mouseup"); },timerTime));
+					start();
+				}
+				else if (measureOn == 1) {
+					start();
+				}
+			}
+		}
+	});
+	if (appMode == 'edit') toggle('draggable', 0);
+}
+
+function updateBoardSizeButtons(){
+	var s6x5 = document.getElementById('size6x5Btn');
+	if (!s6x5) return;
+	s6x5.classList.toggle('modebutton-active', rows==6 && cols==5);
+	document.getElementById('size5x4Btn').classList.toggle('modebutton-active', rows==5 && cols==4);
+	document.getElementById('size7x6Btn').classList.toggle('modebutton-active', rows==7 && cols==6);
+}
+
+// Rebuilds the board at a new size. The board frame itself keeps its
+// current on-screen footprint (fixed by CSS max-width); only the tile
+// count/size changes, via applyResponsiveLayout recomputing `scale` for
+// the new row count.
+function setBoardSize(newRows, newCols){
+	if (rows == newRows && cols == newCols) return;
+	clearMemory('timeout');
+	rows = newRows;
+	cols = newCols;
+	document.getElementById('entry').maxLength = rows*cols;
+	buildTiles();
+	applyResponsiveLayout(true);
+	bindTileDragDrop();
+	buildBoardBackground();
+	randomizeBoard();
+	saveBoardState();
+	requestAction('copypattern');
+	updateBoardSizeButtons();
+	displayOutput('盤面サイズを' + cols + '&times;' + rows + 'に変更しました<br />', 0);
 }
 
 // ---- My Boards (localStorage library) ----
@@ -981,6 +1130,10 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		selectedPaintColor = modifier;
 		updatePaletteSelection();
 	}
+	if (action == 'setboardsize') {
+		var sizeParts = modifier.split('x');
+		setBoardSize(parseInt(sizeParts[0]), parseInt(sizeParts[1]));
+	}
 
 }
 
@@ -1064,15 +1217,12 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 		document.getElementById("entry").style.width = rows*70/6+"px";
 		document.getElementById("entry").style.height = cols*120/5+"px";
 	}
-	for(var i = 0; i < rows*cols; i++){				// create board
-		var randColor = randomColor();
-		divs[i] = document.createElement("div");
-		setTileAttribute(i, randColor, 1);
-		$('#tiles').append(divs[i]);
-	}
+	buildTiles();
 	applyResponsiveLayout();
-	$(window).on('resize orientationchange', debounce(applyResponsiveLayout, 150));
+	buildBoardBackground();
+	$(window).on('resize orientationchange', debounce(function(){ applyResponsiveLayout(); }, 150));
 	randomizeBoard();
+	updateBoardSizeButtons();
 
 	saveBoardState();
 	clearMemory('score');
@@ -1125,56 +1275,7 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 		if (el) paintTile(el);
 	}, { passive: false });
 
-	$( ".tile" ).draggable({
-		refreshPositions:"true",
-		containment: "#board",
-		helper: "clone",
-		opacity: 0.8,
-		start:function( event, ui ){
-			$(this).css({ opacity:0.2 });
-			clearMemory('arrows');
-			replayMoveSet=[];
-			if (changeTheWorldOn ==0 && timerOn == 1) {
-				timeOut.push(setTimeout(function(){ $(document).trigger("mouseup"); },timerTime));
-				start();
-			}
-			else if (changeTheWorldOn == 0 && measureOn == 1) {
-				start();
-			}
-		},
-		stop:function( event, ui ){
-			$(this).css({ opacity:1 });
-			if (changeTheWorldOn == 0 && measureOn == 1) {
-				lastMeasuredTime = x.time();
-			}
-			requestAction('solve', 1);
-		},
-		cursorAt: { top: scale/2, left: scale/2 }
-	});
-	$( ".tile" ).droppable({
-		accept: ".tile",
-		over: function( event, ui ){
-			var draggable = ui.draggable, droppable = $(this);
-			if (skyFall == 1 && swapHasHappened == 0) saveBoardState();
-			draggable.swap(droppable, 2);
-			swapHasHappened = 1;
-		}
-	});
-	$( ".cornerblock" ).droppable({
-		tolerance: "pointer",
-		over: function( event, ui ) {
-			var cornerblockcount = 0;
-			$( ".tile" ).each(function() {
-				if (cornerblockcount++<30) $(this).droppable('option', 'disabled', true);
-			});
-		},
-		out: function( event, ui ) {
-			var cornerblockcount = 0;
-			$( ".tile" ).each(function() {
-				if (cornerblockcount++<30) $(this).droppable('option', 'disabled', false);
-			});
-		}
-	});
+	bindTileDragDrop();
 	$("#entry").bind({
 		keydown: function(e) {
 			if (e.which==13) requestAction('applypattern');

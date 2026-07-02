@@ -37,8 +37,6 @@ body {
 	z-index:2;
 }
 #board {
-	background-image:url('img/bg.png');
-	background-size:180px 180px;
 	aspect-ratio: 6 / 5;
 	border:20px solid #1f201f;
 	clear:both;
@@ -48,6 +46,19 @@ body {
 	position:relative;
 	box-sizing:border-box;
 }
+#boardBg {
+	position:absolute;
+	top:0; left:0; right:0; bottom:0;
+	overflow:hidden;
+}
+.bgcell {
+	float:left;
+	width: var(--tile-size, 90px);
+	height: var(--tile-size, 90px);
+	background-size:100% 100%;
+}
+.bgcell.bg1 { background-image:url('img/bg1.png'); }
+.bgcell.bg2 { background-image:url('img/bg2.png'); }
 #score {
 	margin:0 auto;
 	width:100%;
@@ -325,6 +336,9 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 }
 .edit-mode #editPalette {
 	display:block;
+}
+#boardSizeButtons {
+	margin-bottom:8px;
 }
 #playPanel {
 	display:block;
