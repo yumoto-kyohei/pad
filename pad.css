@@ -299,3 +299,24 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 .comboInfoBox span, .comboInfoBox img {
 	vertical-align: middle;
 }
+
+@media (max-width: 600px) {
+	#wrapwrap {
+		display:flex;
+		flex-direction:column;
+	}
+	#buttons {
+		order:1;
+		margin-top:25px;
+	}
+	#game {
+		order:2;
+		margin-top:10px;
+	}
+	#library {
+		order:3;
+	}
+	#infobooth {
+		order:4;
+	}
+}
