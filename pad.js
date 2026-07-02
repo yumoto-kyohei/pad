@@ -26,7 +26,8 @@ var colors = ['blue','green','red','light','dark','heart']
 	, minimumMatched = 2
 	, minimumMatches = 2
 	, LIBRARY_KEY = 'puzzlePracticeBoards'
-	, appMode = 'play';
+	, appMode = 'play'
+	, selectedPaintColor = null;
 
 function hideUnit(obj) {
 	var link = document.getElementById(obj);
@@ -254,9 +255,31 @@ function toggle(item, command){
 		document.getElementById('modePlayBtn').classList.toggle('modebutton-active', appMode == 'play');
 		document.getElementById('modeEditBtn').classList.toggle('modebutton-active', appMode == 'edit');
 		document.body.classList.toggle('edit-mode', appMode == 'edit');
-		displayOutput(appMode == 'edit' ? 'Editモードに切り替えました(準備中)<br />' : 'Playモードに切り替えました<br />', 0);
+		if (appMode == 'edit') {
+			toggle('draggable', 0);
+			displayOutput('Editモード: パレットで色を選び、盤面のマスをタップすると塗り替えられます<br />', 0);
+		}
+		else {
+			selectedPaintColor = null;
+			updatePaletteSelection();
+			toggle('draggable', 1);
+			displayOutput('Playモードに切り替えました<br />', 0);
+		}
 	}
 
+}
+
+function updatePaletteSelection(){
+	$('.paletteSwatch').removeClass('selected');
+	if (selectedPaintColor) $('.paletteSwatch.' + selectedPaintColor).addClass('selected');
+}
+
+function paintTile(tileEl){
+	if (appMode != 'edit' || !selectedPaintColor) return;
+	var idx = Array.prototype.indexOf.call(divs, tileEl);
+	if (idx == -1) return;
+	setTileAttribute(idx, selectedPaintColor, 1);
+	saveBoardState();
 }
 
 function setTileAttribute(i, tileColor, opacity, classless){
@@ -914,6 +937,10 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'shuffleInstead') toggle('shuffleInstead', modifier);
 	if (action == 'minimumCombo') toggle('minimumCombo', modifier);
 	if (action == 'setmode') toggle('mode', modifier);
+	if (action == 'selectpaint') {
+		selectedPaintColor = modifier;
+		updatePaletteSelection();
+	}
 
 }
 
@@ -1029,6 +1056,10 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 
 	$(function(){
 		document.getElementById('time').innerHTML = formatTime(x.time());
+	});
+
+	$('#tiles').on('click', '.tile', function(){
+		paintTile(this);
 	});
 
 	$( ".tile" ).draggable({

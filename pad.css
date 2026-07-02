@@ -319,6 +319,36 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 	color:#fff;
 }
 
+#editPalette {
+	display:none;
+	width:100%;
+	max-width:540px;
+	margin:0 auto;
+	padding:8px 0;
+	text-align:center;
+	background:#fff;
+	box-sizing:border-box;
+}
+.edit-mode #editPalette {
+	display:block;
+}
+.edit-mode #colorchange {
+	display:none;
+}
+.paletteSwatch {
+	width:36px;
+	height:36px;
+	margin:2px;
+	background-size:100%;
+	border:2px solid transparent;
+	display:inline-block;
+	vertical-align:middle;
+	cursor:pointer;
+}
+.paletteSwatch.selected {
+	border-color:#318dbe;
+}
+
 @media (max-width: 600px) {
 	#wrapwrap {
 		display:flex;

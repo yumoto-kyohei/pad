@@ -27,6 +27,16 @@
 		</div>
 	</div>
 	<div id="game">
+		<div id="editPalette">
+			<button class="paletteSwatch red" onclick="requestAction('selectpaint', 'red')" title="Red"></button>
+			<button class="paletteSwatch blue" onclick="requestAction('selectpaint', 'blue')" title="Blue"></button>
+			<button class="paletteSwatch green" onclick="requestAction('selectpaint', 'green')" title="Green"></button>
+			<button class="paletteSwatch light" onclick="requestAction('selectpaint', 'light')" title="Light"></button>
+			<button class="paletteSwatch dark" onclick="requestAction('selectpaint', 'dark')" title="Dark"></button>
+			<button class="paletteSwatch heart" onclick="requestAction('selectpaint', 'heart')" title="Heart"></button>
+			<button class="paletteSwatch jammer" onclick="requestAction('selectpaint', 'jammer')" title="Jammer"></button>
+			<button class="paletteSwatch poison" onclick="requestAction('selectpaint', 'poison')" title="Poison"></button>
+		</div>
 		<div id="board">
 			<div id="arrowSurfaceC">
 				<canvas id="arrowSurface" width="540px" height="450px"></canvas>
