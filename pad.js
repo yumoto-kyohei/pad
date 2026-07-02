@@ -27,7 +27,8 @@ var colors = ['blue','green','red','light','dark','heart']
 	, minimumMatches = 2
 	, LIBRARY_KEY = 'puzzlePracticeBoards'
 	, appMode = 'play'
-	, selectedPaintColor = null;
+	, selectedPaintColor = null
+	, painting = false;
 
 function hideUnit(obj) {
 	var link = document.getElementById(obj);
@@ -278,6 +279,7 @@ function paintTile(tileEl){
 	if (appMode != 'edit' || !selectedPaintColor) return;
 	var idx = Array.prototype.indexOf.call(divs, tileEl);
 	if (idx == -1) return;
+	if (divs[idx].getAttribute('tileColor') == selectedPaintColor) return;
 	setTileAttribute(idx, selectedPaintColor, 1);
 	saveBoardState();
 }
@@ -1058,9 +1060,27 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 		document.getElementById('time').innerHTML = formatTime(x.time());
 	});
 
-	$('#tiles').on('click', '.tile', function(){
+	$('#tiles').on('mousedown touchstart', '.tile', function(e){
+		if (appMode != 'edit' || !selectedPaintColor) return;
+		if (e.type === 'touchstart') e.preventDefault();
+		painting = true;
 		paintTile(this);
 	});
+	$(document).on('mousemove', function(e){
+		if (!painting) return;
+		var el = document.elementFromPoint(e.clientX, e.clientY);
+		if (el) paintTile(el);
+	});
+	$(document).on('mouseup touchend touchcancel', function(){
+		painting = false;
+	});
+	document.addEventListener('touchmove', function(e){
+		if (!painting) return;
+		e.preventDefault();
+		var touch = e.touches[0];
+		var el = document.elementFromPoint(touch.clientX, touch.clientY);
+		if (el) paintTile(el);
+	}, { passive: false });
 
 	$( ".tile" ).draggable({
 		refreshPositions:"true",
