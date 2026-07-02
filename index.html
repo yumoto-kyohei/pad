@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="description" content="パズドラ盤面練習アプリ" />
+	<title>Puzzle Practice</title>
+	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="pad.css?v1">
+	<link rel="shortcut icon" href="favicon.ico" />
+	<script src="pad.js?v1"></script>
+</head>
+<body><div id="wrapwrap">
+	<div id="lineback">
+		<button onclick="requestAction('help')" class="topbutton image3">?</button>
+		<button onclick="requestAction('options')" class="topbutton image6">Options</button>
+		<button onclick="requestAction('timer')" class="topbutton image2">Timer</button>
+		<div style="float:left;line-height:25px;">Time: <span id="time"></span>&nbsp;</div>
+		<button onclick="requestAction('ctimer', 0)" id="image4" style="display:none" class="topbutton image4">Minus</button>
+		<button onclick="requestAction('ctimer', 1)" id="image5" style="display:none" class="topbutton image5">Plus</button>
+		<div style="float:right;line-height:25px">Puzzle Practice</div>
+	</div>
+	<div id="game">
+		<div id="board">
+			<div id="arrowSurfaceC">
+				<canvas id="arrowSurface" width="540px" height="450px"></canvas>
+			</div>
+			<div id="tiles"></div>
+			<button id="showDrops" style="display:none" onclick="requestAction('showdrops')">Show Drops</button>
+		</div>
+	</div>
+	<div id="buttons">
+		<button id="random" onclick="requestAction('randomize')">Random</button>
+		<button onclick="requestAction('loadboard')">Reset</button>
+		<button onclick="requestAction('replay')">Replay</button>
+		<button onclick="requestAction('copypattern')">Share</button>
+		<button onclick="requestAction('changetheworld')">CtW</button>
+		<button onclick="requestAction('skyfall')">SkyFall</button>
+		<div id="colorchange"><textarea id="entry" maxlength=30></textarea>
+		<button onclick="requestAction('applypattern');" id="convert" style="margin-bottom:10px">apply</button>
+		<input type="text" placeholder="H" maxlength="2" id="colorfrom" name="colorfrom">
+		<input type="text" placeholder="G" maxlength="2" id="colorto" name="colorto">
+		<br /><button onclick="requestAction('convert')" id="convert">convert</button></div>
+	</div>
+	<div id="library">
+		<div id="libraryHeader">
+			<div style="float:left;line-height:30px;font-weight:bold">My Boards</div>
+			<button onclick="requestAction('savepattern')" style="float:right">Save Current Board</button>
+		</div>
+		<div id="libraryList"></div>
+	</div>
+	<div id="infobooth">
+	</div><script src="jquery.ui.touch-punch.min.js"></script>
+</div>
+</body>
+</html>
