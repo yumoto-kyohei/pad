@@ -29,7 +29,7 @@ var colors = ['blue','green','red','light','dark','heart']
 	, appMode = 'play'
 	, selectedPaintColor = null
 	, painting = false
-	, measureOn = 0
+	, measureOn = 1
 	, lastMeasuredTime = null;
 
 function hideUnit(obj) {
@@ -168,22 +168,16 @@ function toggle(item, command){
 			timerOn = 1;
 			measureOn = 0;
 			reset();
-			displayOutput('カウントダウンモード: 一定時間ドロップを動かすと自動的に終了します<br />', 0);
-		}
-		else if (command == 'measure') {
-			timerOn = 0;
-			measureOn = 1;
-			reset();
-			displayOutput('計測モード: ドロップを動かし始めてから離すまでの時間を計測します<br />', 0);
+			displayOutput('制限モード: 一定時間ドロップを動かすと自動的に終了します<br />', 0);
 		}
 		else {
 			timerOn = 0;
-			measureOn = 0;
-			document.getElementById('time').innerHTML = 'Unlimited';
-			displayOutput('無制限モードに切り替えました<br />', 0);
+			measureOn = 1;
+			reset();
+			document.getElementById('time').innerHTML = formatTime(0, 1);
+			displayOutput('計測モード: ドロップを動かし始めてから離すまでの時間を計測します<br />', 0);
 		}
 		document.getElementById('countdownAdjust').style.display = (timerOn == 1) ? 'inline-block' : 'none';
-		document.getElementById('modeUnlimitedBtn').classList.toggle('modebutton-active', timerOn == 0 && measureOn == 0);
 		document.getElementById('modeCountdownBtn').classList.toggle('modebutton-active', timerOn == 1);
 		document.getElementById('modeMeasureBtn').classList.toggle('modebutton-active', measureOn == 1);
 	}
@@ -218,48 +212,48 @@ function toggle(item, command){
 	if (item == 'replayarrows'){
 		if (command == 0){
 			showReplayArrows = 0;
-			displayOutput('Setting changed: Replay Arrows Off');
+			displayOutput('設定を変更しました: リプレイ・ルート表示の矢印 オフ');
 		}
 		else {
 			showReplayArrows = 1;
-			displayOutput('Setting changed: Replay Arrows On');
+			displayOutput('設定を変更しました: リプレイ・ルート表示の矢印 オン');
 		}
 	}
 	if (item == 'showComboItems'){
 		if (command == 0){
 			showComboItems = false;
-			displayOutput('Setting changed: Showing combo results with icons');
+			displayOutput('設定を変更しました: コンボ結果をアイコンで表示');
 		}
 		else {
 			showComboItems = true;
-			displayOutput('Setting changed: Showing combo results with text');
+			displayOutput('設定を変更しました: コンボ結果をテキストで表示');
 		}
 	}
 	if (item == 'randomizeMatchedOrbs'){
 		if (command == 0){
 			randomizeMatchedOrbs = false;
-			displayOutput('Setting changed: Random boards cannot contain matches');
+			displayOutput('設定を変更しました: ランダム生成時にコンボ成立を許可しない');
 		}
 		else {
 			randomizeMatchedOrbs = true;
-			displayOutput('Setting changed: Random boards can now contain matches');
+			displayOutput('設定を変更しました: ランダム生成時にコンボ成立を許可する');
 		}
 	}
 	if (item == 'shuffleInstead'){
 		if (command == 0){
 			shuffleInstead = false;
 			document.getElementById('random').innerHTML = 'Random';
-			displayOutput('Setting changed: Randomize boards instead of shuffling');
+			displayOutput('設定を変更しました: ランダム生成を使う');
 		}
 		else {
 			shuffleInstead = true;
 			document.getElementById('random').innerHTML = 'Shuffle';
-			displayOutput('Setting changed: Shuffle boards instead of randomizing');
+			displayOutput('設定を変更しました: シャッフルを使う');
 		}
 	}
 	if (item == 'minimumCombo'){
 		minimumMatches = command;
-		displayOutput('Setting changed: Minimum combo is now '+(parseInt(command)+1)+'. <br />Sharing the board DOES NOT share this setting');
+		displayOutput('設定を変更しました: 最低'+(parseInt(command)+1)+'個そろうと消えます。<br />※共有リンクにはこの設定は含まれません');
 	}
 	if (item == 'mode'){
 		appMode = command;
@@ -642,16 +636,53 @@ function calculateOutput(item){
 
 // Draws the swap path just travelled as arrows on the board, reusing
 // the same canvas_arrow renderer the Replay feature uses.
+function drawRouteDot(ctx, x, y, radius, fillStyle){
+	ctx.beginPath();
+	ctx.arc(x, y, radius, 0, Math.PI*2);
+	ctx.fillStyle = fillStyle;
+	ctx.fill();
+	ctx.lineWidth = 2;
+	ctx.strokeStyle = '#000';
+	ctx.stroke();
+}
+
+// Draws the swap path just travelled: a thin line through each tile
+// centre, a hollow dot at the start, a filled dot at the end. Segments
+// that get travelled more than once (back-and-forth swaps) are nudged
+// sideways a little each repeat so they stay visually distinct instead
+// of drawing exactly on top of each other.
 function drawMoveRoute(){
 	if (replayMoveSet.length < 2) return;
 	var ctx = document.getElementById('arrowSurface').getContext('2d');
-	for (var f=1; f<replayMoveSet.length; f++){
-		var special = (f == replayMoveSet.length-1) ? 1 : 0;
-		canvas_arrow(ctx,
-			convertXY(replayMoveSet[f-1], 'x')*scale+scale/2, convertXY(replayMoveSet[f-1], 'y')*scale+scale/2,
-			convertXY(replayMoveSet[f], 'x')*scale+scale/2, convertXY(replayMoveSet[f], 'y')*scale+scale/2,
-			special);
+	var points = replayMoveSet.map(function(pos){
+		return { x: convertXY(pos, 'x')*scale+scale/2, y: convertXY(pos, 'y')*scale+scale/2 };
+	});
+	var edgeCounts = {};
+	ctx.lineCap = 'round';
+	for (var f=1; f<points.length; f++){
+		var key = Math.min(replayMoveSet[f-1], replayMoveSet[f]) + '_' + Math.max(replayMoveSet[f-1], replayMoveSet[f]);
+		var repeat = edgeCounts[key] || 0;
+		edgeCounts[key] = repeat + 1;
+		var p0 = points[f-1], p1 = points[f];
+		var dx = p1.x-p0.x, dy = p1.y-p0.y;
+		var len = Math.sqrt(dx*dx+dy*dy) || 1;
+		var offset = Math.ceil(repeat/2) * ((repeat % 2 == 0) ? 4 : -4);
+		var ox = (-dy/len)*offset, oy = (dx/len)*offset;
+		ctx.beginPath();
+		ctx.moveTo(p0.x+ox, p0.y+oy);
+		ctx.lineTo(p1.x+ox, p1.y+oy);
+		ctx.lineWidth = 5;
+		ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo(p0.x+ox, p0.y+oy);
+		ctx.lineTo(p1.x+ox, p1.y+oy);
+		ctx.lineWidth = 2;
+		ctx.strokeStyle = '#fff';
+		ctx.stroke();
 	}
+	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
+	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
 }
 
 function solveBoard(solvePortion){
@@ -826,6 +857,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		clearMemory('timeout');
 		clearMemory('ctw');
 		reset();
+		if (measureOn) document.getElementById('time').innerHTML = formatTime(0, 1);
 		clearMemory('arrows');
 		$("#showDrops").hide();
 	}
@@ -916,7 +948,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		var showHelp =
 			['Play/Edit at the top switches modes. Gear icon leads to <a href="javascript:requestAction(\'options\')">options</a>',
 			'<br /><br />In Edit mode, tap (or slide across) the palette above the board to paint tiles',
-			'<br /><br />In Play mode, the panel above the board picks Unlimited / Countdown / Measure timing (+/- adjusts the countdown length). After a move finishes, the route you swapped through is drawn on the board',
+			'<br /><br />In Play mode, the panel above the board picks 制限 (countdown, +/- adjusts the length) or 計測 (stopwatch) timing. After a move finishes, the route you swapped through is drawn on the board',
 			'<br /><br />CtW (change the world) allows you to move and drop orbs freely for 10 seconds (no replay)',
 			'<br /><br />Use "Save Current Board" below the board to keep boards in My Boards (saved in this browser only)'
 			].join('');
@@ -924,19 +956,19 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	}
 	if (action == 'options') {
 		var showHelp =
-			['Options:<br /><div class="test1"><div style="float:left;vertical-align:bottom;line-height:30px">Board Colors: </div>',
-			'<button onclick="requestAction(\'boardcolor\', \'Green\')" id="bcGreen" class="topbutton image7">Options</button>',
-			'<button onclick="requestAction(\'boardcolor\', \'Red\')" id="bcRed" class="topbutton image8">Options</button>',
-			'<button onclick="requestAction(\'boardcolor\', \'Blue\')" id="bcBlue" class="topbutton image9">Options</button>',
-			'<button onclick="requestAction(\'boardcolor\', \'Light\')" id="bcLight" class="topbutton image10">Options</button>',
-			'<button onclick="requestAction(\'boardcolor\', \'Dark\')" id="bcDark" class="topbutton image11">Options</button>',
-			'<button onclick="requestAction(\'boardcolor\', \'Heart\')" id="bcHeart" class="topbutton image12">Options</button></div>',
-			'<br />Random boards with matches: <a onclick="requestAction(\'randomizeMatchedOrbs\', \'1\');" href="#">On</a> / <a onclick="requestAction(\'randomizeMatchedOrbs\', \'0\');" href="#">Off</a>',
-			'<br />Replay arrows: <a href="#" onclick="requestAction(\'replayarrows\', \'1\');">On</a> / <a href="#" onclick="requestAction(\'replayarrows\', \'0\');">Off</a>',
-            '<br />Show combos results with icons: <a onclick="requestAction(\'showComboItems\', \'1\');" href="#">On</a> / <a onclick="requestAction(\'showComboItems\', \'0\');" href="#">Off</a>',
-            '<br />Instead of randomizing orbs, shuffle them: <a onclick="requestAction(\'shuffleInstead\', \'1\');" href="#">On</a> / <a onclick="requestAction(\'shuffleInstead\', \'0\');" href="#">Off</a>',
-            '<br />Minimum matchable combo: <a onclick="requestAction(\'minimumCombo\', \'2\');" href="#">3</a> / <a onclick="requestAction(\'minimumCombo\', \'3\');" href="#">4</a> / <a onclick="requestAction(\'minimumCombo\', \'4\');" href="#">5</a>',
-            '<br /><br />*Board colors affect possible drops from skyfall and colors from random boards'
+			['オプション:<br /><div class="test1"><div style="float:left;vertical-align:bottom;line-height:30px">使用するドロップ色: </div>',
+			'<button onclick="requestAction(\'boardcolor\', \'Green\')" id="bcGreen" class="topbutton image7">オプション</button>',
+			'<button onclick="requestAction(\'boardcolor\', \'Red\')" id="bcRed" class="topbutton image8">オプション</button>',
+			'<button onclick="requestAction(\'boardcolor\', \'Blue\')" id="bcBlue" class="topbutton image9">オプション</button>',
+			'<button onclick="requestAction(\'boardcolor\', \'Light\')" id="bcLight" class="topbutton image10">オプション</button>',
+			'<button onclick="requestAction(\'boardcolor\', \'Dark\')" id="bcDark" class="topbutton image11">オプション</button>',
+			'<button onclick="requestAction(\'boardcolor\', \'Heart\')" id="bcHeart" class="topbutton image12">オプション</button></div>',
+			'<br />ランダム生成時にコンボ成立を許可: <a onclick="requestAction(\'randomizeMatchedOrbs\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'randomizeMatchedOrbs\', \'0\');" href="#">オフ</a>',
+			'<br />リプレイ・ルート表示の矢印: <a href="#" onclick="requestAction(\'replayarrows\', \'1\');">オン</a> / <a href="#" onclick="requestAction(\'replayarrows\', \'0\');">オフ</a>',
+            '<br />コンボ結果をアイコンで表示: <a onclick="requestAction(\'showComboItems\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'showComboItems\', \'0\');" href="#">オフ</a>',
+            '<br />ランダムの代わりにシャッフルを使う: <a onclick="requestAction(\'shuffleInstead\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'shuffleInstead\', \'0\');" href="#">オフ</a>',
+            '<br />最低何個そろったら消えるか: <a onclick="requestAction(\'minimumCombo\', \'2\');" href="#">3</a> / <a onclick="requestAction(\'minimumCombo\', \'3\');" href="#">4</a> / <a onclick="requestAction(\'minimumCombo\', \'4\');" href="#">5</a>',
+            '<br /><br />※ドロップ色の設定は、スカイフォールやランダム生成で使われる色に影響します'
 			].join('');
 		displayOutput(showHelp, 0);
 		for (index1 = 0; index1 < 2; ++index1){
@@ -1016,6 +1048,10 @@ function start() {
 function reset() {
 	clearInterval(clocktimer);
 	x.reset();
+	// In Measure mode, the readout should keep showing the time from the
+	// move that just finished until the next drag starts, rather than
+	// snapping back to 00.000s the instant the finger lifts.
+	if (measureOn) return;
 	update();
 	document.getElementById('time').innerHTML = formatTime(x.time(), 1);
 }

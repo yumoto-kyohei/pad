@@ -24,14 +24,13 @@
 	</div>
 	<div id="game">
 		<div id="playPanel">
-			<button onclick="requestAction('timemode', 'unlimited')" id="modeUnlimitedBtn" class="modebutton modebutton-active">無制限</button>
-			<button onclick="requestAction('timemode', 'countdown')" id="modeCountdownBtn" class="modebutton">カウントダウン</button>
-			<button onclick="requestAction('timemode', 'measure')" id="modeMeasureBtn" class="modebutton">計測</button>
+			<button onclick="requestAction('timemode', 'countdown')" id="modeCountdownBtn" class="modebutton">制限</button>
+			<button onclick="requestAction('timemode', 'measure')" id="modeMeasureBtn" class="modebutton modebutton-active">計測</button>
 			<span id="countdownAdjust" style="display:none">
 				<button onclick="requestAction('ctimer', 0)" class="topbutton image4" title="短く">Minus</button>
 				<button onclick="requestAction('ctimer', 1)" class="topbutton image5" title="長く">Plus</button>
 			</span>
-			<div>Time: <span id="time">Unlimited</span></div>
+			<div>Time: <span id="time">00.000s</span></div>
 		</div>
 		<div id="editPalette">
 			<button class="paletteSwatch red" onclick="requestAction('selectpaint', 'red')" title="Red"></button>
