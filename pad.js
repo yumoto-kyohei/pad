@@ -6,7 +6,7 @@ var colors = ['blue','green','red','light','dark','heart']
 	, savedBoardState = []
 	, changeTheWorldOn = 0
 	, timerOn = 0
-	, dropSpeed = 500
+	, dropSpeed = 300
 	, scale = 90
 	, offsetMargin = 0
 	, cornerspace = 20
@@ -212,12 +212,14 @@ function toggle(item, command){
 	if (item == 'replayarrows'){
 		if (command == 0){
 			showReplayArrows = 0;
-			displayOutput('設定を変更しました: リプレイ・ルート表示の矢印 オフ');
+			displayOutput('設定を変更しました: ルート表示 オフ');
 		}
 		else {
 			showReplayArrows = 1;
-			displayOutput('設定を変更しました: リプレイ・ルート表示の矢印 オン');
+			displayOutput('設定を変更しました: ルート表示 オン');
 		}
+		var arrowBtn = document.getElementById('arrowToggleBtn');
+		if (arrowBtn) arrowBtn.classList.toggle('modebutton-active', showReplayArrows == 1);
 	}
 	if (item == 'showComboItems'){
 		if (command == 0){
@@ -432,14 +434,16 @@ function playReplay(solution){
 	requestAction('loadboard');
 	toggle('draggable', 0);
 	var ctx = document.getElementById("arrowSurface").getContext("2d");
+	var points = movePathPoints(replayMoveSet);
 	($(divs[replayMoveSet[0]])).css({ opacity:0.4 });
 	var i=1;
 	function playReplayLoopF () {
 		timeOut.push(setTimeout(function () {
-			var special = 0;
-			for (var f=1;f<i+1;f++){
-				if (f==i) special=1;
-				if (showReplayArrows == 1) canvas_arrow(ctx,convertXY(replayMoveSet[f-1], 'x')*scale+scale/2, convertXY(replayMoveSet[f-1], 'y')*scale+scale/2, convertXY(replayMoveSet[f], 'x')*scale+scale/2, convertXY(replayMoveSet[f], 'y')*scale+scale/2, special);
+			if (showReplayArrows == 1) {
+				clearMemory('arrows');
+				drawSmoothPath(ctx, points.slice(0, i+1));
+				drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
+				drawRouteDot(ctx, points[i].x, points[i].y, 9, '#cf0');
 			}
 			($(divs[replayMoveSet[i-1]])).swap($(divs[replayMoveSet[i]]));
 			i++;
@@ -455,45 +459,6 @@ function playReplay(solution){
 		}, dropSpeed));
 	}
 	playReplayLoopF ();
-}
-
-function canvas_arrow(ctx, fromx, fromy, tox, toy, special){
-	fromx+=0.5;
-	fromy+=0.5;
-	tox+=0.5;
-	toy+=0.5;
-	var dx = tox-fromx;
-	var dy = toy-fromy;
-	var angle = Math.atan2(dy,dx);
-	var headlen = 25;
-
-	ctx.strokeStyle="black";
-	ctx.lineWidth="12";
-	ctx.beginPath();
-	ctx.moveTo(fromx, fromy);
-	ctx.lineTo((tox-fromx)*0.88+fromx, (toy-fromy)*0.88+fromy);
-	ctx.stroke();
-
-	if (special==1) ctx.fillStyle="#cf0";
-	else ctx.fillStyle="white";
-	headlen = 22;
-	ctx.beginPath();
-	ctx.moveTo(tox, toy);
-	ctx.lineTo(tox-headlen*Math.cos(angle-Math.PI/6),toy-headlen*Math.sin(angle-Math.PI/6));
-	ctx.lineTo(tox-headlen*Math.cos(angle+Math.PI/6),toy-headlen*Math.sin(angle+Math.PI/6));
-	ctx.closePath();
-	ctx.lineWidth="5";
-	ctx.stroke();
-	ctx.fill();
-
-
-	if (special==1) ctx.strokeStyle="#cf0";
-	else ctx.strokeStyle="white";
-	ctx.lineWidth="8";
-	ctx.beginPath();
-	ctx.moveTo(tox-(tox-fromx)*0.98, toy-(toy-fromy)*0.98);
-	ctx.lineTo((tox-fromx)*0.88+fromx, (toy-fromy)*0.88+fromy);
-	ctx.stroke();
 }
 
 function sortMatchesByClearOrder(solutions){
@@ -634,8 +599,6 @@ function calculateOutput(item){
 	}
 }
 
-// Draws the swap path just travelled as arrows on the board, reusing
-// the same canvas_arrow renderer the Replay feature uses.
 function drawRouteDot(ctx, x, y, radius, fillStyle){
 	ctx.beginPath();
 	ctx.arc(x, y, radius, 0, Math.PI*2);
@@ -646,41 +609,63 @@ function drawRouteDot(ctx, x, y, radius, fillStyle){
 	ctx.stroke();
 }
 
-// Draws the swap path just travelled: a thin line through each tile
-// centre, a hollow dot at the start, a filled dot at the end. Segments
-// that get travelled more than once (back-and-forth swaps) are nudged
-// sideways a little each repeat so they stay visually distinct instead
-// of drawing exactly on top of each other.
+function pointDistance(a, b){
+	var dx = a.x-b.x, dy = a.y-b.y;
+	return Math.sqrt(dx*dx + dy*dy);
+}
+
+function pointTowards(from, to, distance){
+	var dx = to.x-from.x, dy = to.y-from.y;
+	var len = pointDistance(from, to) || 1;
+	var t = Math.min(distance/len, 1);
+	return { x: from.x + dx*t, y: from.y + dy*t };
+}
+
+function movePathPoints(moveSet){
+	return moveSet.map(function(pos){
+		return { x: convertXY(pos, 'x')*scale+scale/2, y: convertXY(pos, 'y')*scale+scale/2 };
+	});
+}
+
+// Draws one continuous path through the given points: straight runs stay
+// straight (no visible joint between collinear segments), and direction
+// changes are rounded into a smooth curve instead of a sharp corner.
+function drawSmoothPath(ctx, points){
+	if (points.length < 2) return;
+	var cornerRadius = scale * 0.3;
+	function tracePath(){
+		ctx.beginPath();
+		ctx.moveTo(points[0].x, points[0].y);
+		for (var i=1; i<points.length-1; i++){
+			var prev = points[i-1], cur = points[i], next = points[i+1];
+			var r1 = Math.min(cornerRadius, pointDistance(prev, cur)/2);
+			var r2 = Math.min(cornerRadius, pointDistance(cur, next)/2);
+			var a = pointTowards(cur, prev, r1);
+			var b = pointTowards(cur, next, r2);
+			ctx.lineTo(a.x, a.y);
+			ctx.quadraticCurveTo(cur.x, cur.y, b.x, b.y);
+		}
+		ctx.lineTo(points[points.length-1].x, points[points.length-1].y);
+	}
+	ctx.lineCap = 'round';
+	ctx.lineJoin = 'round';
+	tracePath();
+	ctx.lineWidth = 6;
+	ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+	ctx.stroke();
+	tracePath();
+	ctx.lineWidth = 2.5;
+	ctx.strokeStyle = '#fff';
+	ctx.stroke();
+}
+
+// Draws the swap path just travelled: a smooth line through the tile
+// centres, a hollow dot at the start, a filled dot at the end.
 function drawMoveRoute(){
 	if (replayMoveSet.length < 2) return;
 	var ctx = document.getElementById('arrowSurface').getContext('2d');
-	var points = replayMoveSet.map(function(pos){
-		return { x: convertXY(pos, 'x')*scale+scale/2, y: convertXY(pos, 'y')*scale+scale/2 };
-	});
-	var edgeCounts = {};
-	ctx.lineCap = 'round';
-	for (var f=1; f<points.length; f++){
-		var key = Math.min(replayMoveSet[f-1], replayMoveSet[f]) + '_' + Math.max(replayMoveSet[f-1], replayMoveSet[f]);
-		var repeat = edgeCounts[key] || 0;
-		edgeCounts[key] = repeat + 1;
-		var p0 = points[f-1], p1 = points[f];
-		var dx = p1.x-p0.x, dy = p1.y-p0.y;
-		var len = Math.sqrt(dx*dx+dy*dy) || 1;
-		var offset = Math.ceil(repeat/2) * ((repeat % 2 == 0) ? 4 : -4);
-		var ox = (-dy/len)*offset, oy = (dx/len)*offset;
-		ctx.beginPath();
-		ctx.moveTo(p0.x+ox, p0.y+oy);
-		ctx.lineTo(p1.x+ox, p1.y+oy);
-		ctx.lineWidth = 5;
-		ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-		ctx.stroke();
-		ctx.beginPath();
-		ctx.moveTo(p0.x+ox, p0.y+oy);
-		ctx.lineTo(p1.x+ox, p1.y+oy);
-		ctx.lineWidth = 2;
-		ctx.strokeStyle = '#fff';
-		ctx.stroke();
-	}
+	var points = movePathPoints(replayMoveSet);
+	drawSmoothPath(ctx, points);
 	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
 	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
 }
@@ -948,7 +933,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		var showHelp =
 			['Play/Edit at the top switches modes. Gear icon leads to <a href="javascript:requestAction(\'options\')">options</a>',
 			'<br /><br />In Edit mode, tap (or slide across) the palette above the board to paint tiles',
-			'<br /><br />In Play mode, the panel above the board picks 制限 (countdown, +/- adjusts the length) or 計測 (stopwatch) timing. After a move finishes, the route you swapped through is drawn on the board',
+			'<br /><br />In Play mode, the panel above the board picks 制限 (countdown, +/- adjusts the length) or 計測 (stopwatch) timing. The ルート表示 button toggles whether the swap path is drawn after a move and during Replay',
 			'<br /><br />CtW (change the world) allows you to move and drop orbs freely for 10 seconds (no replay)',
 			'<br /><br />Use "Save Current Board" below the board to keep boards in My Boards (saved in this browser only)'
 			].join('');
@@ -964,7 +949,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
 			'<button onclick="requestAction(\'boardcolor\', \'Dark\')" id="bcDark" class="topbutton image11">オプション</button>',
 			'<button onclick="requestAction(\'boardcolor\', \'Heart\')" id="bcHeart" class="topbutton image12">オプション</button></div>',
 			'<br />ランダム生成時にコンボ成立を許可: <a onclick="requestAction(\'randomizeMatchedOrbs\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'randomizeMatchedOrbs\', \'0\');" href="#">オフ</a>',
-			'<br />リプレイ・ルート表示の矢印: <a href="#" onclick="requestAction(\'replayarrows\', \'1\');">オン</a> / <a href="#" onclick="requestAction(\'replayarrows\', \'0\');">オフ</a>',
+			'<br />ルート表示: <a href="#" onclick="requestAction(\'replayarrows\', \'1\');">オン</a> / <a href="#" onclick="requestAction(\'replayarrows\', \'0\');">オフ</a>',
             '<br />コンボ結果をアイコンで表示: <a onclick="requestAction(\'showComboItems\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'showComboItems\', \'0\');" href="#">オフ</a>',
             '<br />ランダムの代わりにシャッフルを使う: <a onclick="requestAction(\'shuffleInstead\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'shuffleInstead\', \'0\');" href="#">オフ</a>',
             '<br />最低何個そろったら消えるか: <a onclick="requestAction(\'minimumCombo\', \'2\');" href="#">3</a> / <a onclick="requestAction(\'minimumCombo\', \'3\');" href="#">4</a> / <a onclick="requestAction(\'minimumCombo\', \'4\');" href="#">5</a>',
