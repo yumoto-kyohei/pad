@@ -326,6 +326,32 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 .edit-mode #editPalette {
 	display:block;
 }
+#playPanel {
+	display:block;
+	width:100%;
+	max-width:540px;
+	margin:0 auto;
+	padding:8px 0;
+	text-align:center;
+	background:#fff;
+	box-sizing:border-box;
+	overflow:hidden;
+}
+.edit-mode #playPanel {
+	display:none;
+}
+#countdownAdjust {
+	display:inline-block;
+	vertical-align:middle;
+	margin-left:6px;
+}
+#countdownAdjust .topbutton {
+	float:none;
+	display:inline-block;
+}
+#playPanel #time {
+	font-weight:bold;
+}
 #colorchange {
 	display:none;
 }

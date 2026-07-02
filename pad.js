@@ -28,7 +28,9 @@ var colors = ['blue','green','red','light','dark','heart']
 	, LIBRARY_KEY = 'puzzlePracticeBoards'
 	, appMode = 'play'
 	, selectedPaintColor = null
-	, painting = false;
+	, painting = false
+	, measureOn = 0
+	, lastMeasuredTime = null;
 
 function hideUnit(obj) {
 	var link = document.getElementById(obj);
@@ -161,21 +163,29 @@ function unCapitaliseFirstLetter(string){
 }
 
 function toggle(item, command){
-	if (item == 'timer'){
-		if (timerOn == 0) {
+	if (item == 'timemode'){
+		if (command == 'countdown') {
 			timerOn = 1;
-			displayOutput('Timer starts on click (stays on)<br />');
+			measureOn = 0;
 			reset();
-			$("#image4").show();
-			$("#image5").show();
-			}
+			displayOutput('カウントダウンモード: 一定時間ドロップを動かすと自動的に終了します<br />', 0);
+		}
+		else if (command == 'measure') {
+			timerOn = 0;
+			measureOn = 1;
+			reset();
+			displayOutput('計測モード: ドロップを動かし始めてから離すまでの時間を計測します<br />', 0);
+		}
 		else {
 			timerOn = 0;
-			displayOutput('Timer off<br />');
+			measureOn = 0;
 			document.getElementById('time').innerHTML = 'Unlimited';
-			$("#image4").hide();
-			$("#image5").hide();
+			displayOutput('無制限モードに切り替えました<br />', 0);
 		}
+		document.getElementById('countdownAdjust').style.display = (timerOn == 1) ? 'inline-block' : 'none';
+		document.getElementById('modeUnlimitedBtn').classList.toggle('modebutton-active', timerOn == 0 && measureOn == 0);
+		document.getElementById('modeCountdownBtn').classList.toggle('modebutton-active', timerOn == 1);
+		document.getElementById('modeMeasureBtn').classList.toggle('modebutton-active', measureOn == 1);
 	}
 	if (item == 'draggable'){
 		if (command==2) return $( ".tile" ).draggable( "option", "disabled");
@@ -621,7 +631,26 @@ function calculateOutput(item){
 		}
 		if (scoreTracker['poison'].length>0) poisonText = poisonAmount+'% life lost due to poison';
 		if (replayMoveSet.length > 0) numberOfMoves = 'Number of moves: '+(replayMoveSet.length-1);
-		displayOutput('<div style="float:left">'+comboText+'</div><div style="float:left;margin-left:20px">Total Combo: '+totalCombo+'<br />'+numberOfMoves+'<br />'+poisonText+'</div>', 0);
+		var timeText = '';
+		if (measureOn && lastMeasuredTime !== null) {
+			timeText = 'Time: ' + (lastMeasuredTime/1000).toFixed(2) + 's<br />';
+			lastMeasuredTime = null;
+		}
+		displayOutput('<div style="float:left">'+comboText+'</div><div style="float:left;margin-left:20px">'+timeText+'Total Combo: '+totalCombo+'<br />'+numberOfMoves+'<br />'+poisonText+'</div>', 0);
+	}
+}
+
+// Draws the swap path just travelled as arrows on the board, reusing
+// the same canvas_arrow renderer the Replay feature uses.
+function drawMoveRoute(){
+	if (replayMoveSet.length < 2) return;
+	var ctx = document.getElementById('arrowSurface').getContext('2d');
+	for (var f=1; f<replayMoveSet.length; f++){
+		var special = (f == replayMoveSet.length-1) ? 1 : 0;
+		canvas_arrow(ctx,
+			convertXY(replayMoveSet[f-1], 'x')*scale+scale/2, convertXY(replayMoveSet[f-1], 'y')*scale+scale/2,
+			convertXY(replayMoveSet[f], 'x')*scale+scale/2, convertXY(replayMoveSet[f], 'y')*scale+scale/2,
+			special);
 	}
 }
 
@@ -634,6 +663,7 @@ function solveBoard(solvePortion){
 			darkenOrbs(matchedOrbs);						// clear matches
 		}
 		else {
+				if (showReplayArrows == 1) drawMoveRoute();
 				calculateOutput('score');
 				swapHasHappened = 0;
 				clearMemory('timeout');
@@ -813,8 +843,8 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		}
 	}
 	if (action == 'loadboard') loadBoardState(savedBoardState);
-	if (action == 'timer') {
-		if (changeTheWorldOn == 0) toggle('timer');
+	if (action == 'timemode') {
+		if (changeTheWorldOn == 0) toggle('timemode', modifier);
 		else displayOutput('Not during Change the World<br />', 0);
 		}
 	if (action == 'skyfall') toggle('skyfall');
@@ -884,11 +914,10 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'deletesaved') deleteSavedPattern(modifier);
 	if (action == 'help') {
 		var showHelp =
-			['<a href="javascript:requestAction(\'legend\')">Legend</a> for the color entry box on the right<br /><br />',
-			'Icons above the board do things! Gear icon leads to <a href="javascript:requestAction(\'options\')">options</a>',
-			', stopwatch icon toggles an adjustable 4 second timer',
+			['Play/Edit at the top switches modes. Gear icon leads to <a href="javascript:requestAction(\'options\')">options</a>',
+			'<br /><br />In Edit mode, tap (or slide across) the palette above the board to paint tiles',
+			'<br /><br />In Play mode, the panel above the board picks Unlimited / Countdown / Measure timing (+/- adjusts the countdown length). After a move finishes, the route you swapped through is drawn on the board',
 			'<br /><br />CtW (change the world) allows you to move and drop orbs freely for 10 seconds (no replay)',
-			'<br /><br />Convert feature on the right will change all orbs of the first color to those of the second (supports 2 colors at once: GR=>RG)',
 			'<br /><br />Use "Save Current Board" below the board to keep boards in My Boards (saved in this browser only)'
 			].join('');
 		displayOutput(showHelp, 0);
@@ -920,14 +949,6 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		}
 	}
 	if (action == 'boardcolor') toggle('boardcolor', modifier);
-	if (action == 'legend') {
-		var showHelp =
-			['Legend:<br />R = Red<br />B = Blue<br />G = Green<br />D = Dark (Purple)<br />L = Light (Yellow)<br />H = Heart<br />J = Jammer<br />P = Poison',
-			'<br /><br />Press Enter or hit the apply button to change the board',
-			'<br /><br /><a href="javascript:requestAction(\'help\')">Click here to return to information</a>'
-			].join('');
-		displayOutput(showHelp, 0);
-	}
 	if (action == 'replay') playReplay(toDrop);
 	if (action == 'showdrops') showDrops();
 	if (action == 'ctimer' && changeTheWorldOn == 0) {
@@ -977,7 +998,8 @@ function formatTime(time, modifier) {
 	time = time % (60 * 1000);
 	s = Math.floor( time / 1000 );
 	ms = time % 1000;
-	if (!timerOn && !changeTheWorldOn) return 'Unlimited';
+	if (!timerOn && !changeTheWorldOn && !measureOn) return 'Unlimited';
+	if (measureOn) return pad(s, 2)+'.'+pad(ms, 3)+'s';
 	if (timerOn == 1) timeTop = timerTime/1000;
 	if (changeTheWorldOn == 1) timeTop = 10;
 	newTime = pad(Math.floor(timeTop - .01) - s, 2)+'.' + pad(1000 + timerTime - Math.floor(timerTime/1000)*1000 - ms, 3)+'s';
@@ -1095,9 +1117,15 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 				timeOut.push(setTimeout(function(){ $(document).trigger("mouseup"); },timerTime));
 				start();
 			}
+			else if (changeTheWorldOn == 0 && measureOn == 1) {
+				start();
+			}
 		},
 		stop:function( event, ui ){
 			$(this).css({ opacity:1 });
+			if (changeTheWorldOn == 0 && measureOn == 1) {
+				lastMeasuredTime = x.time();
+			}
 			requestAction('solve', 1);
 		},
 		cursorAt: { top: scale/2, left: scale/2 }
