@@ -9,14 +9,21 @@ a, a:visited {
 	color:#318dbe
 }
 body {
-	background:#f8f8f8
+	background:#f8f8f8;
+	overflow-x:hidden;
+}
+#wrapwrap {
+	width:100%;
+	max-width:540px;
+	margin:0 auto;
 }
 #lineback {
 	border-left: 1px solid #d2d2d2;
 	border-right: 1px solid #d2d2d2;
 	z-index:-1;
 	position:absolute;
-	width:540px;
+	width:100%;
+	max-width:540px;
 	background:#fff;
 	margin-left: auto;
 	margin-right: auto;
@@ -25,6 +32,7 @@ body {
 	right: 0;
 	bottom: 0;
 	text-align:right;
+	box-sizing:border-box;
 }
 #game {
 	margin-top:25px
@@ -37,20 +45,24 @@ body {
 #board {
 	background-image:url('img/bg.png');
 	background-size:180px 180px;
-	height:450px;
+	aspect-ratio: 6 / 5;
 	border:20px solid #1f201f;
 	clear:both;
-	width:540px;
+	width:100%;
+	max-width:540px;
 	margin: 0 auto;
 	position:relative;
+	box-sizing:border-box;
 }
 #score {
 	margin:0 auto;
-	width:540px;
+	width:100%;
+	max-width:540px;
 	background:#fff;
 	min-height:20px;
 	text-align:center;
 	padding:6px 0;
+	box-sizing:border-box;
 }
 #entry {
 	border:1px solid #eee;
@@ -81,16 +93,19 @@ body {
 	text-align:center;
 }
 #infobooth {
-	width:500px;
+	width:100%;
+	max-width:500px;
 	background:#fff;
 	padding:20px;
 	margin: 0 auto;
 	border-left: 1px solid #d2d2d2;
 	border-right: 1px solid #d2d2d2;
 	min-height:100px;
+	box-sizing:border-box;
 }
 #library {
-	width:500px;
+	width:100%;
+	max-width:500px;
 	background:#fff;
 	padding:20px;
 	margin: 20px auto 0;
@@ -98,6 +113,7 @@ body {
 	border-right: 1px solid #d2d2d2;
 	border-top: 1px solid #d2d2d2;
 	min-height:60px;
+	box-sizing:border-box;
 }
 #libraryHeader {
 	overflow:hidden;
@@ -190,12 +206,16 @@ body {
 #buttons {
 	padding-top:10px;
 	margin:0 auto;
-	width: 540px;
+	width: 100%;
+	max-width:540px;
 	background-color: #fff;
-	min-height:20px
+	min-height:20px;
+	overflow:hidden;
+	box-sizing:border-box;
 }
 #buttons button {
-	width:90px;
+	width:16.666%;
+	box-sizing:border-box;
 	background: #f8f8f8;
 	float:left;
 	border: 1px solid #d2d2d2;
@@ -221,8 +241,8 @@ body {
 	margin:0px;
 	display: block;
 	float: left;
-	height: 90px;
-	width: 90px;
+	height: var(--tile-size, 90px);
+	width: var(--tile-size, 90px);
 	background-size:100%;
 	z-index:1;
 	position:relative;

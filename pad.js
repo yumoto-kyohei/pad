@@ -320,13 +320,13 @@ function copyPattern(modifier){
 }
 
 function darkenOrbs (matchedOrbs){
-    var comboPositionSplit = matchedOrbs[Object.size(matchedOrbs)-1];
-		for(var i = 0; i < comboPositionSplit.length; i++){
-			setTileAttribute(comboPositionSplit[i], 'black', 0, 1);
-		}
-	delete matchedOrbs[Object.size(matchedOrbs)-1];
+	var comboPositionSplit = matchedOrbs[0];
+	for(var i = 0; i < comboPositionSplit.length; i++){
+		setTileAttribute(comboPositionSplit[i], 'black', 0, 1);
+	}
+	matchedOrbs.shift();
 	timeOut.push(setTimeout(function () {
-		if (Object.size(matchedOrbs) > 0) darkenOrbs (matchedOrbs);
+		if (matchedOrbs.length > 0) darkenOrbs (matchedOrbs);
 		else requestAction('boardmatched');
 	}, dropSpeed));
 }
@@ -459,6 +459,32 @@ function canvas_arrow(ctx, fromx, fromy, tox, toy, special){
 	ctx.stroke();
 }
 
+function sortMatchesByClearOrder(solutions){
+	// Matches the original game's clear order: lower on the board first,
+	// then the leftmost among matches at the same height.
+	function bottomOf(track){
+		var maxY = -1;
+		for (var i=0;i<track.length;i++){
+			var y = convertXY(track[i], 'y');
+			if (y > maxY) maxY = y;
+		}
+		return maxY;
+	}
+	function leftOf(track){
+		var minX = rows;
+		for (var i=0;i<track.length;i++){
+			var x = convertXY(track[i], 'x');
+			if (x < minX) minX = x;
+		}
+		return minX;
+	}
+	solutions.sort(function(a, b){
+		var bottomDiff = bottomOf(b) - bottomOf(a);
+		if (bottomDiff != 0) return bottomDiff;
+		return leftOf(a) - leftOf(b);
+	});
+}
+
 function getMatches(){
 	var comboPositionList = [];
 	var comboColor = '', comboPosition = [];
@@ -505,7 +531,9 @@ function getMatches(){
 		floodFill.apply(null, convertXY(comboPositionList[i]));
 		if(track.length > minimumMatches)
 			solutions.push(track);
-	} return solutions;
+	}
+	sortMatchesByClearOrder(solutions);
+	return solutions;
 	function floodFill(x, y){
 		fillPosition (x, y);
 		while(stack.length>0){
@@ -609,6 +637,42 @@ function shuffleBoard() {
 	shuffledBoard = document.getElementById("entry").value.shuffle();
 	document.getElementById("entry").value=shuffledBoard;
 	requestAction('applypattern', 2);
+}
+
+function debounce(fn, wait){
+	var t;
+	return function(){
+		clearTimeout(t);
+		t = setTimeout(fn, wait);
+	};
+}
+
+// Recomputes the pixel tile size (`scale`) from the board's actual rendered
+// width so the whole layout fits narrow (phone) viewports without the user
+// having to pinch-zoom. Everything else (drag math, canvas arrows, corner
+// blocks) already reads from `scale`, so keeping it in sync with the real
+// rendered size is enough to make the whole board responsive.
+function applyResponsiveLayout(){
+	var boardEl = document.getElementById('board');
+	if (!boardEl || divs.length == 0) return;
+	boardEl.style.aspectRatio = rows + ' / ' + cols;
+	var measuredWidth = boardEl.clientWidth;
+	if (!measuredWidth) return;
+	var newScale = Math.floor(measuredWidth / rows);
+	if (newScale < 1 || newScale == scale) return;
+	scale = newScale;
+	boardEl.style.setProperty('--tile-size', scale + 'px');
+	var canvas = document.getElementById('arrowSurface');
+	canvas.width = scale * rows;
+	canvas.height = scale * cols;
+	canvas.style.width = (scale * rows) + 'px';
+	canvas.style.height = (scale * cols) + 'px';
+	$('.cornerblock').remove();
+	for (var i2 = 1; i2 < rows; i2++) {
+		for (var h2 = 1; h2 < cols; h2++) {
+		  $( "#board" ).append( "<div class='cornerblock' style='left:"+((scale*i2)-(cornerspace/2))+"px;top:"+((scale*h2)-(cornerspace/2))+"px'></div>" );
+		}
+	}
 }
 
 // ---- My Boards (localStorage library) ----
@@ -925,11 +989,8 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 		setTileAttribute(i, randColor, 1);
 		$('#tiles').append(divs[i]);
 	}
-	for (i = 1; i < rows; i++) {
-		for (h = 1; h < cols; h++) {
-		  $( "#board" ).append( "<div class='cornerblock' style='left:"+((scale*i)-(cornerspace/2))+"px;top:"+((scale*h)-(cornerspace/2))+"px'></div>" );
-		}
-	}
+	applyResponsiveLayout();
+	$(window).on('resize orientationchange', debounce(applyResponsiveLayout, 150));
 	randomizeBoard();
 
 	saveBoardState();
