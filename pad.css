@@ -20,22 +20,16 @@ body {
 #lineback {
 	border-left: 1px solid #d2d2d2;
 	border-right: 1px solid #d2d2d2;
-	z-index:-1;
-	position:absolute;
 	width:100%;
 	max-width:540px;
+	margin:0 auto;
 	background:#fff;
-	margin-left: auto;
-	margin-right: auto;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	text-align:right;
 	box-sizing:border-box;
+	overflow:hidden;
+	padding:6px 0;
 }
 #game {
-	margin-top:25px
+	margin-top:10px
 }
 #arrowSurfaceC, #arrowSurface {
 	position:absolute;
@@ -356,7 +350,6 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 	}
 	#buttons {
 		order:1;
-		margin-top:25px;
 	}
 	#game {
 		order:2;
