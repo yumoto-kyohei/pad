@@ -399,7 +399,23 @@ function checkField(){
 	return false;
 }
 
-var fallStepSpeed = 90;
+var totalFallSpeed = 300;
+
+// How many gravity passes the farthest-falling tile needs: for each
+// column, the number of black (cleared) cells below a tile is exactly
+// how many rows that tile has left to fall.
+function calculateMaxFallPasses(){
+	var maxPasses = 0;
+	for (var f = 0; f < rows; f++){
+		var blackBelow = 0;
+		for (var y = cols-1; y >= 0; y--){
+			var color = divs[y*rows+f].getAttribute('tileColor');
+			if (color == 'black') blackBelow++;
+			else if (blackBelow > maxPasses) maxPasses = blackBelow;
+		}
+	}
+	return maxPasses;
+}
 
 // Animates an element sliding into its new position using the FLIP
 // technique: since tiles are float-positioned (their on-screen spot is
@@ -407,22 +423,31 @@ var fallStepSpeed = 90;
 // position doesn't work. Instead we measure how far the element jumped,
 // counter it with an instant transform, then transition that transform
 // back to zero so the jump reads as a smooth slide.
-function animateFallStep(el, fromTop){
+function animateFallStep(el, fromTop, stepDuration){
 	var toTop = el.getBoundingClientRect().top;
 	var delta = fromTop - toTop;
 	if (delta == 0) return;
 	el.style.transition = 'none';
 	el.style.transform = 'translateY(' + delta + 'px)';
 	void el.offsetWidth; // force reflow so the jump above isn't merged with the transition below
-	el.style.transition = 'transform ' + fallStepSpeed + 'ms linear';
+	el.style.transition = 'transform ' + stepDuration + 'ms linear';
 	el.style.transform = '';
 	setTimeout(function(){
 		el.style.transition = '';
 		el.style.transform = '';
-	}, fallStepSpeed);
+	}, stepDuration);
 }
 
-function dropField(){
+// The whole fall (however many rows it spans) always takes totalFallSpeed
+// (0.3s): the per-pass step duration is that total divided across however
+// many gravity passes the farthest tile needs, so a 1-row and a 5-row
+// drop both finish at the same time instead of the fall taking longer
+// the further tiles have to travel.
+function dropField(stepDuration){
+	if (stepDuration === undefined) {
+		var maxPasses = calculateMaxFallPasses();
+		stepDuration = maxPasses > 0 ? totalFallSpeed / maxPasses : totalFallSpeed;
+	}
 	var falling = Array.prototype.filter.call(divs, function(el){ return el.getAttribute('tileColor') != 'black'; });
 	var beforeTops = falling.map(function(el){ return el.getBoundingClientRect().top; });
 	for(var f = 0; f < rows; f++){
@@ -439,8 +464,8 @@ function dropField(){
 			}
 		}
 	}
-	falling.forEach(function(el, idx){ animateFallStep(el, beforeTops[idx]); });
-	if (checkField()) timeOut.push(setTimeout(function () { dropField(); }, fallStepSpeed));
+	falling.forEach(function(el, idx){ animateFallStep(el, beforeTops[idx], stepDuration); });
+	if (checkField()) timeOut.push(setTimeout(function () { dropField(stepDuration); }, stepDuration));
 	else requestAction('fielddropped');
 }
 
@@ -760,10 +785,14 @@ function debounce(fn, wait){
 function applyResponsiveLayout(force){
 	var boardEl = document.getElementById('board');
 	if (!boardEl || divs.length == 0) return;
-	boardEl.style.aspectRatio = rows + ' / ' + cols;
+	// The board frame keeps its fixed footprint (CSS aspect-ratio, not
+	// touched here); tiles are sized to fit whatever grid is currently
+	// selected within that fixed width AND height, so a 4x5 or 6x7 board
+	// never overflows the frame in either direction.
 	var measuredWidth = boardEl.clientWidth;
-	if (!measuredWidth) return;
-	var newScale = Math.floor(measuredWidth / rows);
+	var measuredHeight = boardEl.clientHeight;
+	if (!measuredWidth || !measuredHeight) return;
+	var newScale = Math.floor(Math.min(measuredWidth / rows, measuredHeight / cols));
 	if (newScale < 1 || (newScale == scale && !force)) return;
 	scale = newScale;
 	boardEl.style.setProperty('--tile-size', scale + 'px');
@@ -900,7 +929,8 @@ function setBoardSize(newRows, newCols){
 	saveBoardState();
 	requestAction('copypattern');
 	updateBoardSizeButtons();
-	displayOutput('盤面サイズを' + cols + '&times;' + rows + 'に変更しました<br />', 0);
+	var activeBtn = document.querySelector('#boardSizeButtons .modebutton-active');
+	displayOutput('盤面サイズを' + (activeBtn ? activeBtn.textContent : rows + '&times;' + cols) + 'に変更しました<br />', 0);
 }
 
 // ---- My Boards (localStorage library) ----
