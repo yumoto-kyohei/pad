@@ -7,9 +7,9 @@
 	<title>Puzzle Practice</title>
 	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
-	<link rel="stylesheet" type="text/css" href="pad.css?v2">
+	<link rel="stylesheet" type="text/css" href="pad.css?v3">
 	<link rel="shortcut icon" href="favicon.ico" />
-	<script src="pad.js?v2"></script>
+	<script src="pad.js?v3"></script>
 </head>
 <body><div id="wrapwrap">
 	<div id="lineback">
@@ -34,6 +34,12 @@
 			<div>Time: <span id="time">00.000s</span></div>
 		</div>
 		<div id="analyzePanel">
+			<div id="analyzeLevels">
+				精度:
+				<button onclick="requestAction('analyzelevel', 'fast')" id="levelFastBtn" class="modebutton modebutton-active">速い(25手)</button>
+				<button onclick="requestAction('analyzelevel', 'normal')" id="levelNormalBtn" class="modebutton">標準(35手)</button>
+				<button onclick="requestAction('analyzelevel', 'deep')" id="levelDeepBtn" class="modebutton">詳細(50手)</button>
+			</div>
 			<button onclick="requestAction('analyze')" class="modebutton">解析開始</button>
 			<div id="analyzeStatus"></div>
 			<div id="analyzeResults"></div>
@@ -43,6 +49,8 @@
 				<button onclick="requestAction('setboardsize', '6x5')" id="size6x5Btn" class="modebutton modebutton-active">5&times;6</button>
 				<button onclick="requestAction('setboardsize', '5x4')" id="size5x4Btn" class="modebutton">5&times;4</button>
 				<button onclick="requestAction('setboardsize', '7x6')" id="size7x6Btn" class="modebutton">7&times;6</button>
+				<label for="screenshotInput" class="modebutton" style="cursor:pointer">スクショ読込</label>
+				<input type="file" id="screenshotInput" accept="image/*" style="display:none">
 			</div>
 			<button class="paletteSwatch red" onclick="requestAction('selectpaint', 'red')" title="Red"></button>
 			<button class="paletteSwatch blue" onclick="requestAction('selectpaint', 'blue')" title="Blue"></button>

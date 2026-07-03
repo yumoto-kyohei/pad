@@ -360,6 +360,9 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 	margin-top:6px;
 	color:#666;
 }
+#analyzeLevels {
+	margin-bottom:8px;
+}
 #analyzeResults {
 	display:inline-block;
 	text-align:left;

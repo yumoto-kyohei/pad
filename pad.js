@@ -738,6 +738,14 @@ function drawMoveRoute(){
 
 var analysisSolutions = [];
 var analysisRunning = false;
+var analysisLevel = 'fast';
+// Deeper levels search longer routes with a wider beam; the search is
+// chunked per depth so the page stays responsive even at 50 moves.
+var ANALYSIS_LEVELS = {
+	fast:   { depth: 25, beam: 200 },
+	normal: { depth: 35, beam: 300 },
+	deep:   { depth: 50, beam: 400 }
+};
 
 function boardArrayFromDivs(){
 	var b = [];
@@ -855,7 +863,8 @@ function runAnalysis(){
 	saveBoardState();
 	clearMemory('arrows');
 	var base = boardArrayFromDivs();
-	var maxDepth = 25, beamWidth = 250, extraDepthAfterBest = 3;
+	var levelParams = ANALYSIS_LEVELS[analysisLevel] || ANALYSIS_LEVELS.fast;
+	var maxDepth = levelParams.depth, beamWidth = levelParams.beam, extraDepthAfterBest = 3;
 	var target = maxPossibleCombosFromCounts(base);
 	var best = 0, bestFoundDepth = -1;
 	// Solutions are kept per combo count (best tier and one below) so the
@@ -964,6 +973,98 @@ function showAnalysisSolution(index){
 	drawSmoothPath(ctx, points);
 	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
 	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
+}
+
+// ---- スクショ読込 (set the board from a game screenshot) ----
+//
+// Assumes the board spans the full width of the screenshot and sits at
+// (or near) the bottom edge, as in the real game. Several candidate
+// bottom margins are tried, and whichever grid alignment yields the most
+// saturated, orb-like samples wins; each cell is then classified by hue.
+// Uses the currently selected board size, so pick 5x6/5x4/7x6 first.
+
+function rgbToHsv(r, g, b){
+	r /= 255; g /= 255; b /= 255;
+	var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+	var h = 0;
+	if (d !== 0){
+		if (max === r) h = 60 * (((g - b) / d) % 6);
+		else if (max === g) h = 60 * ((b - r) / d + 2);
+		else h = 60 * ((r - g) / d + 4);
+	}
+	if (h < 0) h += 360;
+	return { h: h, s: max === 0 ? 0 : d / max, v: max };
+}
+
+function hueDistance(a, b){
+	var d = Math.abs(a - b) % 360;
+	return d > 180 ? 360 - d : d;
+}
+
+var ORB_HUE_REFS = [
+	{ color: 'red', h: 12 },
+	{ color: 'light', h: 47 },
+	{ color: 'green', h: 130 },
+	{ color: 'blue', h: 210 },
+	{ color: 'dark', h: 280 },
+	{ color: 'heart', h: 333 }
+];
+
+function classifyOrbColor(r, g, b){
+	var hsv = rgbToHsv(r, g, b);
+	var best = null, bestD = Infinity;
+	for (var i = 0; i < ORB_HUE_REFS.length; i++){
+		var d = hueDistance(hsv.h, ORB_HUE_REFS[i].h);
+		if (d < bestD){ bestD = d; best = ORB_HUE_REFS[i].color; }
+	}
+	// Orbs are strongly colored; washed-out samples (background wood,
+	// misaligned grids) get a penalty so better-aligned grids score lower.
+	var penalty = Math.max(0, 0.35 - hsv.s) * 400 + Math.max(0, 0.25 - hsv.v) * 400;
+	return { color: best, dist: bestD + penalty };
+}
+
+function sampleAverage(ctx, cx, cy, radius){
+	var x0 = Math.max(0, Math.round(cx - radius));
+	var y0 = Math.max(0, Math.round(cy - radius));
+	var size = Math.max(2, Math.round(radius * 2));
+	var data = ctx.getImageData(x0, y0, size, size).data;
+	var r = 0, g = 0, b = 0, n = data.length / 4;
+	for (var i = 0; i < data.length; i += 4){ r += data[i]; g += data[i+1]; b += data[i+2]; }
+	return { r: r/n, g: g/n, b: b/n };
+}
+
+function importBoardFromImage(img){
+	var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+	if (!W || !H) return;
+	var c = document.createElement('canvas');
+	c.width = W; c.height = H;
+	var ictx = c.getContext('2d');
+	ictx.drawImage(img, 0, 0);
+	var cell = W / rows;
+	var bottomOffsets = [0, 0.01, 0.02, 0.035, 0.05, 0.07, 0.1];
+	var bestBoard = null, bestScore = Infinity;
+	for (var oi = 0; oi < bottomOffsets.length; oi++){
+		var top = H - H * bottomOffsets[oi] - cell * cols;
+		if (top < 0) continue;
+		var board = [], score = 0;
+		for (var i = 0; i < rows*cols; i++){
+			var x = i % rows, y = (i - x) / rows;
+			var avg = sampleAverage(ictx, x*cell + cell/2, top + y*cell + cell/2, cell*0.18);
+			var cls = classifyOrbColor(avg.r, avg.g, avg.b);
+			board.push(cls.color);
+			score += cls.dist;
+		}
+		if (score < bestScore){ bestScore = score; bestBoard = board; }
+	}
+	if (!bestBoard || bestScore / (rows*cols) > 120){
+		displayOutput('盤面をうまく読み取れませんでした。ゲーム画面全体のスクリーンショット(盤面が下端にあるもの)を使ってください<br />', 0);
+		return;
+	}
+	for (var t = 0; t < rows*cols; t++) setTileAttribute(t, bestBoard[t], 1);
+	getTiles();
+	saveBoardState();
+	requestAction('copypattern');
+	displayOutput('スクリーンショットから盤面を読み込みました。誤認識があればパレットで修正してください<br />', 0);
 }
 
 function solveBoard(solvePortion){
@@ -1431,6 +1532,12 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		setBoardSize(parseInt(sizeParts[0]), parseInt(sizeParts[1]));
 	}
 	if (action == 'analyze') runAnalysis();
+	if (action == 'analyzelevel') {
+		analysisLevel = modifier;
+		document.getElementById('levelFastBtn').classList.toggle('modebutton-active', modifier == 'fast');
+		document.getElementById('levelNormalBtn').classList.toggle('modebutton-active', modifier == 'normal');
+		document.getElementById('levelDeepBtn').classList.toggle('modebutton-active', modifier == 'deep');
+	}
 	if (action == 'showsolution') showAnalysisSolution(modifier);
 	if (action == 'playsolution') {
 		var solToPlay = analysisSolutions[modifier];
@@ -1581,6 +1688,18 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 	}, { passive: false });
 
 	bindTileDragDrop();
+	$('#screenshotInput').on('change', function(){
+		var file = this.files && this.files[0];
+		if (!file) return;
+		var url = URL.createObjectURL(file);
+		var img = new Image();
+		img.onload = function(){
+			importBoardFromImage(img);
+			URL.revokeObjectURL(url);
+		};
+		img.src = url;
+		this.value = '';
+	});
 	$("#entry").bind({
 		keydown: function(e) {
 			if (e.which==13) requestAction('applypattern');
