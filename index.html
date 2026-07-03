@@ -7,9 +7,9 @@
 	<title>Puzzle Practice</title>
 	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
-	<link rel="stylesheet" type="text/css" href="pad.css?v1">
+	<link rel="stylesheet" type="text/css" href="pad.css?v2">
 	<link rel="shortcut icon" href="favicon.ico" />
-	<script src="pad.js?v1"></script>
+	<script src="pad.js?v2"></script>
 </head>
 <body><div id="wrapwrap">
 	<div id="lineback">
@@ -17,7 +17,7 @@
 		<button onclick="requestAction('options')" class="topbutton image6">Options</button>
 		<div style="float:right;line-height:25px">
 			<span id="modeToggle">
-				<button onclick="requestAction('setmode', 'play')" id="modePlayBtn" class="modebutton modebutton-active">Play</button><button onclick="requestAction('setmode', 'edit')" id="modeEditBtn" class="modebutton">Edit</button>
+				<button onclick="requestAction('setmode', 'play')" id="modePlayBtn" class="modebutton modebutton-active">Play</button><button onclick="requestAction('setmode', 'edit')" id="modeEditBtn" class="modebutton">Edit</button><button onclick="requestAction('setmode', 'analyze')" id="modeAnalyzeBtn" class="modebutton">解析</button>
 			</span>
 			<span id="appTitle">&nbsp;Puzzle Practice</span>
 		</div>
@@ -32,6 +32,11 @@
 			</span>
 			<button onclick="requestAction('replayarrows', showReplayArrows ? 0 : 1)" id="arrowToggleBtn" class="modebutton modebutton-active" title="操作後・リプレイ時にルートを表示">ルート表示</button>
 			<div>Time: <span id="time">00.000s</span></div>
+		</div>
+		<div id="analyzePanel">
+			<button onclick="requestAction('analyze')" class="modebutton">解析開始</button>
+			<div id="analyzeStatus"></div>
+			<div id="analyzeResults"></div>
 		</div>
 		<div id="editPalette">
 			<div id="boardSizeButtons">

@@ -183,6 +183,7 @@ function toggle(item, command){
 	}
 	if (item == 'draggable'){
 		if (command==2) return $( ".tile" ).draggable( "option", "disabled");
+		if (command==1 && appMode != 'play') command = 0; // Edit/解析モードでは常にドラッグ無効
 		if (command==1) setTimeout(function(){ $( ".tile" ).draggable( "option", "disabled", false ); }, 5);
 		else setTimeout(function(){ $( ".tile" ).draggable( "option", "disabled", true ); }, 5);
 	}
@@ -261,10 +262,16 @@ function toggle(item, command){
 		appMode = command;
 		document.getElementById('modePlayBtn').classList.toggle('modebutton-active', appMode == 'play');
 		document.getElementById('modeEditBtn').classList.toggle('modebutton-active', appMode == 'edit');
+		document.getElementById('modeAnalyzeBtn').classList.toggle('modebutton-active', appMode == 'analyze');
 		document.body.classList.toggle('edit-mode', appMode == 'edit');
+		document.body.classList.toggle('analyze-mode', appMode == 'analyze');
 		if (appMode == 'edit') {
 			toggle('draggable', 0);
 			displayOutput('Editモード: パレットで色を選び、盤面のマスをタップすると塗り替えられます<br />', 0);
+		}
+		else if (appMode == 'analyze') {
+			toggle('draggable', 0);
+			displayOutput('解析モード: 「解析開始」を押すと、現在の盤面で最大コンボを組める最短ルートを探索します<br />', 0);
 		}
 		else {
 			selectedPaintColor = null;
@@ -721,6 +728,244 @@ function drawMoveRoute(){
 	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
 }
 
+// ---- 解析モード (max-combo route solver) ----
+//
+// Beam search over cursor paths: a state is (board, cursor position,
+// path so far); each step slides the cursor to an orthogonal neighbour,
+// swapping the two orbs, exactly like a real move. Boards are scored by
+// full cascade simulation (no skyfall), so the reported combo count is
+// what the move would actually score.
+
+var analysisSolutions = [];
+var analysisRunning = false;
+
+function boardArrayFromDivs(){
+	var b = [];
+	for (var i = 0; i < rows*cols; i++) b.push(divs[i].getAttribute('tileColor'));
+	return b;
+}
+
+function markRunsArr(b, marked){
+	var minRun = minimumMatched + 1;
+	var x, y, c, len, k;
+	for (y = 0; y < cols; y++){
+		x = 0;
+		while (x < rows){
+			c = b[y*rows + x];
+			len = 1;
+			while (x + len < rows && c && b[y*rows + x + len] === c) len++;
+			if (c && c !== 'black' && len >= minRun) for (k = 0; k < len; k++) marked[y*rows + x + k] = true;
+			x += len;
+		}
+	}
+	for (x = 0; x < rows; x++){
+		y = 0;
+		while (y < cols){
+			c = b[y*rows + x];
+			len = 1;
+			while (y + len < cols && c && b[(y+len)*rows + x] === c) len++;
+			if (c && c !== 'black' && len >= minRun) for (k = 0; k < len; k++) marked[(y+k)*rows + x] = true;
+			y += len;
+		}
+	}
+}
+
+// Counts combos on a board copy, fully cascading falls (without skyfall,
+// so the result is deterministic). Mirrors getMatches' rules: runs of 3+
+// in a line, flood-filled into groups, group size over minimumMatches.
+function simulateCascade(b){
+	var combos = 0;
+	while (true){
+		var marked = {};
+		markRunsArr(b, marked);
+		var cells = Object.keys(marked);
+		if (!cells.length) break;
+		var visited = {};
+		var groups = [];
+		for (var ci = 0; ci < cells.length; ci++){
+			var startPos = parseInt(cells[ci]);
+			if (visited[startPos]) continue;
+			var color = b[startPos];
+			var stack = [startPos], group = [];
+			visited[startPos] = true;
+			while (stack.length){
+				var p = stack.pop();
+				group.push(p);
+				var px = p % rows, py = (p - px) / rows;
+				var neigh = [];
+				if (px > 0) neigh.push(p-1);
+				if (px < rows-1) neigh.push(p+1);
+				if (py > 0) neigh.push(p-rows);
+				if (py < cols-1) neigh.push(p+rows);
+				for (var n = 0; n < neigh.length; n++){
+					var q = neigh[n];
+					if (!visited[q] && marked[q] && b[q] === color){ visited[q] = true; stack.push(q); }
+				}
+			}
+			if (group.length > minimumMatches) groups.push(group);
+		}
+		if (!groups.length) break;
+		combos += groups.length;
+		for (var g = 0; g < groups.length; g++)
+			for (var m = 0; m < groups[g].length; m++) b[groups[g][m]] = null;
+		for (var gx = 0; gx < rows; gx++){
+			var write = cols - 1;
+			for (var gy = cols - 1; gy >= 0; gy--){
+				var v = b[gy*rows + gx];
+				if (v !== null){ b[write*rows + gx] = v; write--; }
+			}
+			for (; write >= 0; write--) b[write*rows + gx] = null;
+		}
+	}
+	return combos;
+}
+
+// Cheap tiebreaker that nudges the beam toward boards with same-color
+// orbs adjacent to each other (i.e. combos in the making).
+function countAdjacentPairs(b){
+	var pairs = 0;
+	for (var i = 0; i < rows*cols; i++){
+		var c = b[i];
+		if (!c || c === 'black') continue;
+		var px = i % rows, py = (i - px) / rows;
+		if (px < rows-1 && b[i+1] === c) pairs++;
+		if (py < cols-1 && b[i+rows] === c) pairs++;
+	}
+	return pairs;
+}
+
+function maxPossibleCombosFromCounts(b){
+	var counts = {}, total = 0, need = minimumMatches + 1;
+	for (var i = 0; i < b.length; i++){
+		if (!b[i] || b[i] === 'black') continue;
+		counts[b[i]] = (counts[b[i]] || 0) + 1;
+	}
+	for (var k in counts) total += Math.floor(counts[k] / need);
+	return total;
+}
+
+function setAnalyzeStatus(text){
+	var el = document.getElementById('analyzeStatus');
+	if (el) el.textContent = text;
+}
+
+function runAnalysis(){
+	if (analysisRunning) return;
+	analysisRunning = true;
+	saveBoardState();
+	clearMemory('arrows');
+	var base = boardArrayFromDivs();
+	var maxDepth = 25, beamWidth = 250, extraDepthAfterBest = 3;
+	var target = maxPossibleCombosFromCounts(base);
+	var best = 0, bestFoundDepth = -1;
+	// Solutions are kept per combo count (best tier and one below) so the
+	// results can list several near-optimal routes, not just the single
+	// best path the beam happened to keep.
+	var solutionsByCombo = {};
+	var beam = [];
+	for (var s = 0; s < rows*cols; s++) beam.push({ board: base, pos: s, path: [s] });
+	var depth = 0;
+	document.getElementById('analyzeResults').innerHTML = '';
+	setAnalyzeStatus('解析中... 0/' + maxDepth + '手');
+
+	function step(){
+		depth++;
+		var candidates = [];
+		var seen = {};
+		for (var bi = 0; bi < beam.length; bi++){
+			var st = beam[bi];
+			var px = st.pos % rows, py = (st.pos - px) / rows;
+			var prev = st.path.length > 1 ? st.path[st.path.length-2] : -1;
+			var neighbors = [];
+			if (px > 0) neighbors.push(st.pos-1);
+			if (px < rows-1) neighbors.push(st.pos+1);
+			if (py > 0) neighbors.push(st.pos-rows);
+			if (py < cols-1) neighbors.push(st.pos+rows);
+			for (var ni = 0; ni < neighbors.length; ni++){
+				var np = neighbors[ni];
+				if (np === prev) continue; // no immediate backtrack
+				var nb = st.board.slice();
+				var tmp = nb[st.pos]; nb[st.pos] = nb[np]; nb[np] = tmp;
+				var key = nb.join('|') + '#' + np;
+				if (seen[key]) continue;
+				seen[key] = true;
+				var combos = simulateCascade(nb.slice());
+				var npath = st.path.concat([np]);
+				candidates.push({ board: nb, pos: np, path: npath, score: combos*1000 + countAdjacentPairs(nb) });
+				if (combos > 0 && combos >= best - 1){
+					if (combos > best){
+						best = combos;
+						bestFoundDepth = depth;
+						for (var oldTier in solutionsByCombo){
+							if (parseInt(oldTier) < best - 1) delete solutionsByCombo[oldTier];
+						}
+					}
+					var tierArr = solutionsByCombo[combos] = solutionsByCombo[combos] || [];
+					if (tierArr.length < 60) tierArr.push(npath);
+				}
+			}
+		}
+		candidates.sort(function(a, b2){ return b2.score - a.score; });
+		beam = candidates.slice(0, beamWidth);
+		setAnalyzeStatus('解析中... ' + depth + '/' + maxDepth + '手 (現時点の最大: ' + best + 'コンボ)');
+		var doneByTarget = (best >= target && bestFoundDepth > -1 && depth >= bestFoundDepth + extraDepthAfterBest);
+		if (doneByTarget || depth >= maxDepth || beam.length === 0) finish();
+		else setTimeout(step, 0);
+	}
+
+	function finish(){
+		analysisRunning = false;
+		// Best-combo routes first (shortest first), then one combo fewer
+		// as extra alternatives if there is room left.
+		var tiers = Object.keys(solutionsByCombo).map(Number).sort(function(a, b2){ return b2 - a; });
+		var seenPaths = {}, finals = [];
+		for (var t = 0; t < tiers.length && finals.length < 5; t++){
+			var tierPaths = solutionsByCombo[tiers[t]].slice();
+			tierPaths.sort(function(a, b2){ return a.length - b2.length; });
+			for (var i = 0; i < tierPaths.length && finals.length < 5; i++){
+				var k = tierPaths[i].join(',');
+				if (seenPaths[k]) continue;
+				seenPaths[k] = true;
+				finals.push({ path: tierPaths[i], combos: tiers[t] });
+			}
+		}
+		analysisSolutions = finals;
+		renderAnalysisResults(best, target);
+	}
+
+	setTimeout(step, 0);
+}
+
+function renderAnalysisResults(best, target){
+	var container = document.getElementById('analyzeResults');
+	if (!analysisSolutions.length){
+		container.innerHTML = '<div>ルートが見つかりませんでした</div>';
+		setAnalyzeStatus('');
+		return;
+	}
+	var html = '';
+	for (var i = 0; i < analysisSolutions.length; i++){
+		var s = analysisSolutions[i];
+		html += '<div class="analyzeItem">' + (i+1) + '. ' + s.combos + 'コンボ / ' + (s.path.length-1) + '手'
+			+ ' <button onclick="requestAction(\'showsolution\', ' + i + ')">ルート表示</button>'
+			+ ' <button onclick="requestAction(\'playsolution\', ' + i + ')">再生</button></div>';
+	}
+	container.innerHTML = html;
+	setAnalyzeStatus('解析完了: 最大' + best + 'コンボ (盤面の理論値 ' + target + 'コンボ)');
+	requestAction('showsolution', 0);
+}
+
+function showAnalysisSolution(index){
+	var sol = analysisSolutions[index];
+	if (!sol) return;
+	clearMemory('arrows');
+	var ctx = document.getElementById('arrowSurface').getContext('2d');
+	var points = movePathPoints(sol.path);
+	drawSmoothPath(ctx, points);
+	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
+	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
+}
+
 function solveBoard(solvePortion){
 	if (solvePortion == 1){
 		getTiles();											// get board positions
@@ -785,14 +1030,13 @@ function debounce(fn, wait){
 function applyResponsiveLayout(force){
 	var boardEl = document.getElementById('board');
 	if (!boardEl || divs.length == 0) return;
-	// The board frame keeps its fixed footprint (CSS aspect-ratio, not
-	// touched here); tiles are sized to fit whatever grid is currently
-	// selected within that fixed width AND height, so a 4x5 or 6x7 board
-	// never overflows the frame in either direction.
+	// The frame keeps its width; its height follows the current grid's
+	// aspect ratio (like the real game, where board heights differ a bit
+	// between sizes), so tiles always fill the frame exactly.
+	boardEl.style.aspectRatio = rows + ' / ' + cols;
 	var measuredWidth = boardEl.clientWidth;
-	var measuredHeight = boardEl.clientHeight;
-	if (!measuredWidth || !measuredHeight) return;
-	var newScale = Math.floor(Math.min(measuredWidth / rows, measuredHeight / cols));
+	if (!measuredWidth) return;
+	var newScale = Math.floor(measuredWidth / rows);
 	if (newScale < 1 || (newScale == scale && !force)) return;
 	scale = newScale;
 	boardEl.style.setProperty('--tile-size', scale + 'px');
@@ -859,12 +1103,31 @@ function buildBoardBackground(){
 // (Re)binds jQuery UI draggable/droppable to the current .tile elements.
 // Must be called again after buildTiles() since jQuery UI widgets only
 // attach to elements that exist at the time it's called.
+// Slides a displaced orb from its old on-screen spot to its new one
+// (FLIP, same idea as the fall animation) so drag swaps read as the orb
+// smoothly flowing out of the way instead of teleporting.
+function animateSwapSlide(el, fromLeft, fromTop){
+	var r = el.getBoundingClientRect();
+	var dx = fromLeft - r.left, dy = fromTop - r.top;
+	if (!dx && !dy) return;
+	el.style.transition = 'none';
+	el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+	void el.offsetWidth;
+	el.style.transition = 'transform 110ms ease-out';
+	el.style.transform = '';
+	setTimeout(function(){
+		el.style.transition = '';
+		el.style.transform = '';
+	}, 110);
+}
+
 function bindTileDragDrop(){
 	$( ".tile" ).draggable({
 		refreshPositions:"true",
 		containment: "#board",
 		helper: "clone",
 		opacity: 0.8,
+		zIndex: 3,
 		start:function( event, ui ){
 			$(this).css({ opacity:0.2 });
 			clearMemory('arrows');
@@ -881,11 +1144,14 @@ function bindTileDragDrop(){
 	});
 	$( ".tile" ).droppable({
 		accept: ".tile",
+		tolerance: "pointer",
 		over: function( event, ui ){
 			var draggable = ui.draggable, droppable = $(this);
 			var firstSwap = (swapHasHappened == 0);
 			if (skyFall == 1 && swapHasHappened == 0) saveBoardState();
+			var displacedRect = droppable[0].getBoundingClientRect();
 			draggable.swap(droppable, 2);
+			animateSwapSlide(droppable[0], displacedRect.left, displacedRect.top);
 			swapHasHappened = 1;
 			// The timer (制限/計測) starts on the first actual swap, not
 			// when the drop is first picked up.
@@ -900,7 +1166,7 @@ function bindTileDragDrop(){
 			}
 		}
 	});
-	if (appMode == 'edit') toggle('draggable', 0);
+	if (appMode != 'play') toggle('draggable', 0);
 }
 
 function updateBoardSizeButtons(){
@@ -1163,6 +1429,15 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'setboardsize') {
 		var sizeParts = modifier.split('x');
 		setBoardSize(parseInt(sizeParts[0]), parseInt(sizeParts[1]));
+	}
+	if (action == 'analyze') runAnalysis();
+	if (action == 'showsolution') showAnalysisSolution(modifier);
+	if (action == 'playsolution') {
+		var solToPlay = analysisSolutions[modifier];
+		if (solToPlay) {
+			replayMoveSet = solToPlay.path.slice();
+			requestAction('replay');
+		}
 	}
 
 }
