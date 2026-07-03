@@ -286,6 +286,19 @@ function toggle(item, command){
 
 }
 
+function updateOrbCountBar(){
+	if (!document.getElementById('orbCountBar') || divs.length == 0) return;
+	var counts = {};
+	for (var i = 0; i < divs.length; i++){
+		var c = divs[i].getAttribute('tileColor');
+		counts[c] = (counts[c] || 0) + 1;
+	}
+	for (var k = 0; k < colors2.length; k++){
+		var el = document.getElementById('orbCount-' + colors2[k]);
+		if (el) el.textContent = counts[colors2[k]] || 0;
+	}
+}
+
 function updatePaletteSelection(){
 	$('.paletteSwatch').removeClass('selected');
 	if (selectedPaintColor) $('.paletteSwatch.' + selectedPaintColor).addClass('selected');
@@ -495,7 +508,7 @@ function playReplay(solution){
 	requestAction('loadboard');
 	toggle('draggable', 0);
 	var ctx = document.getElementById("arrowSurface").getContext("2d");
-	var points = movePathPoints(replayMoveSet);
+	var points = buildOffsetPathPoints(replayMoveSet);
 	($(divs[replayMoveSet[0]])).css({ opacity:0.4 });
 	var i=1;
 	function playReplayLoopF () {
@@ -624,36 +637,38 @@ function calculateOutput(item){
 
 	if (item == 'score'){
 		var totalCombo = 0;
-		var comboText = '';
+		var clearedText = '';
 		for (i = 0; i<colors2.length;i++){
 			if (typeof scoreTracker[colors2[i]] === "undefined") continue;
 			for (g = 0;g<scoreTracker[colors2[i]].length;g++){
-                if(showComboItems) {
-                    comboText += "<div class='comboInfoBox'>" +
-                        "<span>" + scoreTracker[colors2[i]][g]+" x </span> " +
-                        "<img width='32px' src='img/" + capitaliseFirstLetter(colors2[i]) + ".png'>" +
-                        "</div>";
-                } else {
-                    comboText += scoreTracker[colors2[i]][g]+" x "+colors2[i]+'<br />';
-                }
-
+				if (showComboItems) {
+					clearedText += "<span class='clearedItem'><img width='22px' src='img/" + capitaliseFirstLetter(colors2[i]) + ".png'>×" + scoreTracker[colors2[i]][g] + "</span>";
+				} else {
+					clearedText += colors2[i] + '×' + scoreTracker[colors2[i]][g] + ' ';
+				}
 				totalCombo++;
 			}
 		}
 		var poisonText = '';
-		var numberOfMoves = '';
 		var poisonAmount = 0;
 		for (var i=0;i<scoreTracker['poison'].length;i++){
 			poisonAmount += 20+(scoreTracker['poison'][i]-3)*5;
 		}
-		if (scoreTracker['poison'].length>0) poisonText = poisonAmount+'% life lost due to poison';
-		if (replayMoveSet.length > 0) numberOfMoves = 'Number of moves: '+(replayMoveSet.length-1);
+		if (scoreTracker['poison'].length>0) poisonText = '<br />毒によるダメージ: '+poisonAmount+'%';
+		var movesText = replayMoveSet.length > 0 ? ' ' + (replayMoveSet.length-1) + '手' : '';
 		var timeText = '';
-		if (measureOn && lastMeasuredTime !== null) {
-			timeText = 'Time: ' + (lastMeasuredTime/1000).toFixed(2) + 's<br />';
+		if (lastMeasuredTime !== null) {
+			timeText = ' 操作時間' + (lastMeasuredTime/1000).toFixed(2) + '秒';
 			lastMeasuredTime = null;
 		}
-		displayOutput('<div style="float:left">'+comboText+'</div><div style="float:left;margin-left:20px">'+timeText+'Total Combo: '+totalCombo+'<br />'+numberOfMoves+'<br />'+poisonText+'</div>', 0);
+		var remaining = 0;
+		for (var r2 = 0; r2 < divs.length; r2++){
+			if (divs[r2].getAttribute('tileColor') != 'black') remaining++;
+		}
+		var boardMax = maxPossibleCombosFromCounts(savedBoardState);
+		displayOutput('<b>' + totalCombo + 'コンボ</b>' + movesText + timeText
+			+ ' 盤面最大' + boardMax + 'コンボ 残' + remaining + '個<br />'
+			+ clearedText + poisonText, 0);
 	}
 }
 
@@ -683,6 +698,40 @@ function movePathPoints(moveSet){
 	return moveSet.map(function(pos){
 		return { x: convertXY(pos, 'x')*scale+scale/2, y: convertXY(pos, 'y')*scale+scale/2 };
 	});
+}
+
+// Like movePathPoints, but when the route crosses the same edge between
+// two cells more than once, later traversals are shifted sideways into
+// parallel "lanes" (like train tracks) so overlapping parts of the line
+// stay distinguishable. The perpendicular is taken relative to the
+// edge's canonical direction, so traversals in opposite directions
+// share the same lane geometry. Each waypoint is placed at the average
+// of its two adjacent segments' offsets, which the smooth-path renderer
+// then rounds into gentle transitions.
+function buildOffsetPathPoints(moveSet){
+	var pts = movePathPoints(moveSet);
+	if (pts.length < 2) return pts;
+	var laneGap = Math.max(6, scale * 0.14);
+	var edgeCounts = {};
+	var segOffsets = [];
+	for (var i = 1; i < moveSet.length; i++){
+		var lo = Math.min(moveSet[i-1], moveSet[i]);
+		var hi = Math.max(moveSet[i-1], moveSet[i]);
+		var key = lo + '_' + hi;
+		var k = edgeCounts[key] || 0;
+		edgeCounts[key] = k + 1;
+		var lane = (k === 0) ? 0 : Math.ceil(k/2) * ((k % 2 === 1) ? 1 : -1);
+		var dx = (hi % rows) - (lo % rows);
+		var dy = Math.floor(hi / rows) - Math.floor(lo / rows);
+		segOffsets.push({ x: -dy * lane * laneGap, y: dx * lane * laneGap });
+	}
+	var out = [];
+	for (var p = 0; p < pts.length; p++){
+		var offA = segOffsets[Math.max(0, p - 1)];
+		var offB = segOffsets[Math.min(segOffsets.length - 1, p)];
+		out.push({ x: pts[p].x + (offA.x + offB.x)/2, y: pts[p].y + (offA.y + offB.y)/2 });
+	}
+	return out;
 }
 
 // Draws one continuous path through the given points: straight runs stay
@@ -722,7 +771,7 @@ function drawSmoothPath(ctx, points){
 function drawMoveRoute(){
 	if (replayMoveSet.length < 2) return;
 	var ctx = document.getElementById('arrowSurface').getContext('2d');
-	var points = movePathPoints(replayMoveSet);
+	var points = buildOffsetPathPoints(replayMoveSet);
 	drawSmoothPath(ctx, points);
 	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
 	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
@@ -969,7 +1018,7 @@ function showAnalysisSolution(index){
 	if (!sol) return;
 	clearMemory('arrows');
 	var ctx = document.getElementById('arrowSurface').getContext('2d');
-	var points = movePathPoints(sol.path);
+	var points = buildOffsetPathPoints(sol.path);
 	drawSmoothPath(ctx, points);
 	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
 	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
@@ -1319,7 +1368,7 @@ function bindTileDragDrop(){
 		},
 		stop:function( event, ui ){
 			$(this).css({ opacity:1 });
-			if (changeTheWorldOn == 0 && measureOn == 1) {
+			if (changeTheWorldOn == 0 && (measureOn == 1 || timerOn == 1)) {
 				lastMeasuredTime = x.time();
 			}
 			requestAction('solve', 1);
@@ -1735,6 +1784,14 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 	saveBoardState();
 	clearMemory('score');
 	renderLibrary();
+
+	// Keeps the orb-count bar in sync with any board change (paints,
+	// generation, clears, refills) without touching every code path.
+	new MutationObserver(debounce(updateOrbCountBar, 60)).observe(
+		document.getElementById('tiles'),
+		{ attributes: true, attributeFilter: ['tilecolor'], subtree: true, childList: true }
+	);
+	updateOrbCountBar();
 
 	if ($_GET['patt']){
 		document.getElementById("entry").innerHTML=$_GET['patt'];

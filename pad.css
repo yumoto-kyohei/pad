@@ -363,6 +363,36 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 #analyzeLevels {
 	margin-bottom:8px;
 }
+#orbCountBar {
+	display:flex;
+	justify-content:space-around;
+	align-items:center;
+	width:100%;
+	max-width:540px;
+	margin:0 auto;
+	padding:4px 0;
+	background:#fff;
+	box-sizing:border-box;
+}
+.edit-mode #orbCountBar, .analyze-mode #orbCountBar {
+	display:none;
+}
+.orbCount {
+	white-space:nowrap;
+}
+.orbCount img {
+	width:20px;
+	height:20px;
+	vertical-align:middle;
+	margin-right:2px;
+}
+.clearedItem {
+	white-space:nowrap;
+	margin-right:8px;
+}
+.clearedItem img {
+	vertical-align:middle;
+}
 #buttons .editOnly {
 	display:none;
 }

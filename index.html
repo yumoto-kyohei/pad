@@ -7,9 +7,9 @@
 	<title>Puzzle Practice</title>
 	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
-	<link rel="stylesheet" type="text/css" href="pad.css?v4">
+	<link rel="stylesheet" type="text/css" href="pad.css?v5">
 	<link rel="shortcut icon" href="favicon.ico" />
-	<script src="pad.js?v4"></script>
+	<script src="pad.js?v5"></script>
 </head>
 <body><div id="wrapwrap">
 	<div id="lineback">
@@ -71,6 +71,16 @@
 					<span class="genCol"><button id="genChip-heart" class="genChip heart selected" onclick="requestAction('genchip', 'heart')"></button><input id="genCount-heart" class="genCount" type="number" min="0" placeholder="-"></span>
 				</div>
 			</div>
+		</div>
+		<div id="orbCountBar">
+			<span class="orbCount"><img src="img/Red.png"><span id="orbCount-red">0</span></span>
+			<span class="orbCount"><img src="img/Blue.png"><span id="orbCount-blue">0</span></span>
+			<span class="orbCount"><img src="img/Green.png"><span id="orbCount-green">0</span></span>
+			<span class="orbCount"><img src="img/Light.png"><span id="orbCount-light">0</span></span>
+			<span class="orbCount"><img src="img/Dark.png"><span id="orbCount-dark">0</span></span>
+			<span class="orbCount"><img src="img/Heart.png"><span id="orbCount-heart">0</span></span>
+			<span class="orbCount"><img src="img/Jammer.png"><span id="orbCount-jammer">0</span></span>
+			<span class="orbCount"><img src="img/Poison.png"><span id="orbCount-poison">0</span></span>
 		</div>
 		<div id="board">
 			<div id="boardBg"></div>
