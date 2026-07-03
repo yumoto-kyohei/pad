@@ -508,16 +508,13 @@ function playReplay(solution){
 	requestAction('loadboard');
 	toggle('draggable', 0);
 	var ctx = document.getElementById("arrowSurface").getContext("2d");
-	var points = buildOffsetPathPoints(replayMoveSet);
 	($(divs[replayMoveSet[0]])).css({ opacity:0.4 });
 	var i=1;
 	function playReplayLoopF () {
 		timeOut.push(setTimeout(function () {
 			if (showReplayArrows == 1) {
 				clearMemory('arrows');
-				drawSmoothPath(ctx, points.slice(0, i+1));
-				drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
-				drawRouteDot(ctx, points[i].x, points[i].y, 9, '#cf0');
+				drawRoutePath(ctx, replayMoveSet, i+1);
 			}
 			($(divs[replayMoveSet[i-1]])).swap($(divs[replayMoveSet[i]]));
 			i++;
@@ -700,38 +697,17 @@ function movePathPoints(moveSet){
 	});
 }
 
-// Like movePathPoints, but when the route crosses the same edge between
-// two cells more than once, later traversals are shifted sideways into
-// parallel "lanes" (like train tracks) so overlapping parts of the line
-// stay distinguishable. The perpendicular is taken relative to the
-// edge's canonical direction, so traversals in opposite directions
-// share the same lane geometry. Each waypoint is placed at the average
-// of its two adjacent segments' offsets, which the smooth-path renderer
-// then rounds into gentle transitions.
-function buildOffsetPathPoints(moveSet){
-	var pts = movePathPoints(moveSet);
-	if (pts.length < 2) return pts;
-	var laneGap = Math.max(6, scale * 0.14);
-	var edgeCounts = {};
-	var segOffsets = [];
-	for (var i = 1; i < moveSet.length; i++){
-		var lo = Math.min(moveSet[i-1], moveSet[i]);
-		var hi = Math.max(moveSet[i-1], moveSet[i]);
-		var key = lo + '_' + hi;
-		var k = edgeCounts[key] || 0;
-		edgeCounts[key] = k + 1;
-		var lane = (k === 0) ? 0 : Math.ceil(k/2) * ((k % 2 === 1) ? 1 : -1);
-		var dx = (hi % rows) - (lo % rows);
-		var dy = Math.floor(hi / rows) - Math.floor(lo / rows);
-		segOffsets.push({ x: -dy * lane * laneGap, y: dx * lane * laneGap });
-	}
-	var out = [];
-	for (var p = 0; p < pts.length; p++){
-		var offA = segOffsets[Math.max(0, p - 1)];
-		var offB = segOffsets[Math.min(segOffsets.length - 1, p)];
-		out.push({ x: pts[p].x + (offA.x + offB.x)/2, y: pts[p].y + (offA.y + offB.y)/2 });
-	}
-	return out;
+// Draws the route as one continuous smoothed line through the tile
+// centres (no lane-offsetting for repeated edges — overlapping passes
+// simply draw on top of each other, which reads more clearly than
+// parallel offset lines).
+function drawRoutePath(ctx, moveSet, revealCount){
+	if (revealCount === undefined) revealCount = moveSet.length;
+	if (revealCount < 2) return;
+	var points = movePathPoints(moveSet).slice(0, revealCount);
+	drawSmoothPath(ctx, points);
+	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
+	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
 }
 
 // Draws one continuous path through the given points: straight runs stay
@@ -771,10 +747,7 @@ function drawSmoothPath(ctx, points){
 function drawMoveRoute(){
 	if (replayMoveSet.length < 2) return;
 	var ctx = document.getElementById('arrowSurface').getContext('2d');
-	var points = buildOffsetPathPoints(replayMoveSet);
-	drawSmoothPath(ctx, points);
-	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
-	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
+	drawRoutePath(ctx, replayMoveSet);
 }
 
 // ---- 解析モード (max-combo route solver) ----
@@ -1018,10 +991,7 @@ function showAnalysisSolution(index){
 	if (!sol) return;
 	clearMemory('arrows');
 	var ctx = document.getElementById('arrowSurface').getContext('2d');
-	var points = buildOffsetPathPoints(sol.path);
-	drawSmoothPath(ctx, points);
-	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
-	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
+	drawRoutePath(ctx, sol.path);
 }
 
 // ---- スクショ読込 (set the board from a game screenshot) ----
