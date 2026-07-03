@@ -363,6 +363,58 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 #analyzeLevels {
 	margin-bottom:8px;
 }
+#buttons .editOnly {
+	display:none;
+}
+.edit-mode #buttons .playOnly {
+	display:none;
+}
+.edit-mode #buttons .editOnly {
+	display:block;
+	width:100%;
+}
+.analyze-mode #buttons {
+	display:none;
+}
+#buttons button.toggled-on {
+	background:#318dbe;
+	color:#fff;
+}
+#genConfig {
+	margin-top:10px;
+	font-size:12px;
+	color:#666;
+}
+#genCols {
+	margin-top:4px;
+}
+.genCol {
+	display:inline-block;
+	margin:0 3px;
+	vertical-align:top;
+}
+.genChip {
+	width:30px;
+	height:30px;
+	display:block;
+	background-size:100%;
+	border:2px solid transparent;
+	opacity:0.3;
+	cursor:pointer;
+	margin:0 auto;
+}
+.genChip.selected {
+	opacity:1;
+	border-color:#318dbe;
+}
+.genCount {
+	width:34px;
+	margin-top:2px;
+	border:1px solid #d2d2d2;
+	text-align:center;
+	font-size:12px;
+	box-sizing:border-box;
+}
 #analyzeResults {
 	display:inline-block;
 	text-align:left;

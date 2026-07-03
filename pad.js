@@ -30,7 +30,9 @@ var colors = ['blue','green','red','light','dark','heart']
 	, selectedPaintColor = null
 	, painting = false
 	, measureOn = 1
-	, lastMeasuredTime = null;
+	, lastMeasuredTime = null
+	, playStyle = 'single'
+	, genSelected = { red: true, blue: true, green: true, light: true, dark: true, heart: true };
 
 function hideUnit(obj) {
 	var link = document.getElementById(obj);
@@ -190,12 +192,13 @@ function toggle(item, command){
 	if (item == 'skyfall'){
 		if (skyFall == 0) {
 			skyFall = 1;
-			displayOutput('Skyfall enabled.<br /><br />You will now be able to extra turns. Press SkyFall again to disable this. Replays will not save which orbs fall');
+			displayOutput('落ちコンあり: 消えた場所に上から新しいドロップが降ってきます(リプレイには落ちてきたドロップは保存されません)<br />', 0);
 			}
 		else {
 			skyFall = 0;
-			displayOutput('Skyfall has been disabled');
+			displayOutput('落ちコンなしに切り替えました<br />', 0);
 			}
+		document.getElementById('skyfallBtn').classList.toggle('toggled-on', skyFall == 1);
 		}
 	if (item == 'boardcolor'){
 		temp23 = '';
@@ -507,12 +510,9 @@ function playReplay(solution){
 			i++;
 			if (i < replayMoveSet.length) playReplayLoopF();
 			else {
-				if (solution == 2){
-					showDrops();
-				}
-				else {
-					$("#showDrops").show();
-				}
+				// After the route finishes, always play out how the drops
+				// clear instead of waiting for a Show Drops click.
+				showDrops();
 			}
 		}, dropSpeed));
 	}
@@ -1067,6 +1067,89 @@ function importBoardFromImage(img){
 	displayOutput('スクリーンショットから盤面を読み込みました。誤認識があればパレットで修正してください<br />', 0);
 }
 
+// Fills any cleared (black) cells with random drops. When 落ちコン is
+// off the fill retries until it doesn't create instant matches, so the
+// next puzzle starts from a settled board.
+function refillBoard(){
+	var holes = [];
+	for (var i = 0; i < rows*cols; i++){
+		if (divs[i].getAttribute('tileColor') == 'black') holes.push(i);
+	}
+	if (!holes.length) return;
+	for (var attempt = 0; attempt < 60; attempt++){
+		for (var h = 0; h < holes.length; h++) setTileAttribute(holes[h], randomColor(), 1);
+		getTiles();
+		if (getMatches() == false) return;
+	}
+}
+
+// Runs when a puzzle has fully resolved (all combos cleared and fallen).
+// 単発 (single-shot) restores the starting board so the same puzzle can
+// be practiced again — the route stays drawn until Reset. 継続
+// (continuous) refills the cleared drops and makes the resulting board
+// the new baseline for Reset/Replay.
+function finishPuzzle(){
+	if (playStyle == 'single'){
+		loadBoardState(savedBoardState);
+	}
+	else {
+		refillBoard();
+		saveBoardState();
+		replayMoveSet = [];
+	}
+	toggle('draggable', 1);
+}
+
+// Keeps the skyfall/random color pool in sync with the Edit-mode
+// generator chips, so 落ちコン drops come from the same 陣.
+function syncColorsFromGen(){
+	var selected = [];
+	for (var c in genSelected) if (genSelected[c]) selected.push(c);
+	if (selected.length > 0) colors = selected.slice();
+}
+
+// Edit-mode Random: builds a board from the selected colors (色陣), with
+// optional exact per-color counts. Existing matches are allowed — a 陣
+// legitimately contains pre-connected drops.
+function generateEditBoard(){
+	var selected = [];
+	for (var c in genSelected) if (genSelected[c]) selected.push(c);
+	if (selected.length < 1){
+		displayOutput('生成する色を1色以上選んでください<br />', 0);
+		return;
+	}
+	var total = rows*cols;
+	var pool = [], fixedSum = 0, flexible = [];
+	for (var i = 0; i < selected.length; i++){
+		var el = document.getElementById('genCount-' + selected[i]);
+		var v = (el && el.value !== '') ? parseInt(el.value) : NaN;
+		if (!isNaN(v) && v >= 0){
+			fixedSum += v;
+			for (var k = 0; k < v; k++) pool.push(selected[i]);
+		}
+		else flexible.push(selected[i]);
+	}
+	if (fixedSum > total){
+		displayOutput('個数指定の合計(' + fixedSum + ')が盤面のマス数(' + total + ')を超えています<br />', 0);
+		return;
+	}
+	if (!flexible.length && fixedSum < total){
+		displayOutput('個数指定の合計(' + fixedSum + ')がマス数(' + total + ')に足りません。どれかの色の個数を空欄にすると、残りがその色のランダムで埋まります<br />', 0);
+		return;
+	}
+	while (pool.length < total) pool.push(flexible[Math.floor(Math.random() * flexible.length)]);
+	for (var j = pool.length - 1; j > 0; j--){
+		var swapTo = Math.floor(Math.random() * (j + 1));
+		var tmp = pool[j]; pool[j] = pool[swapTo]; pool[swapTo] = tmp;
+	}
+	for (var p = 0; p < total; p++) setTileAttribute(p, pool[p], 1);
+	getTiles();
+	saveBoardState();
+	syncColorsFromGen();
+	replayMoveSet = [];
+	requestAction('copypattern');
+}
+
 function solveBoard(solvePortion){
 	if (solvePortion == 1){
 		getTiles();											// get board positions
@@ -1080,7 +1163,7 @@ function solveBoard(solvePortion){
 				calculateOutput('score');
 				swapHasHappened = 0;
 				clearMemory('timeout');
-			if (skyFall == 1) toggle('draggable', 1);
+				finishPuzzle();
 		}
 	}
 	if (solvePortion == 2) {
@@ -1530,6 +1613,19 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'setboardsize') {
 		var sizeParts = modifier.split('x');
 		setBoardSize(parseInt(sizeParts[0]), parseInt(sizeParts[1]));
+	}
+	if (action == 'editrandom') generateEditBoard();
+	if (action == 'genchip') {
+		genSelected[modifier] = !genSelected[modifier];
+		document.getElementById('genChip-' + modifier).classList.toggle('selected', genSelected[modifier]);
+		syncColorsFromGen();
+	}
+	if (action == 'playstyle') {
+		playStyle = (playStyle == 'single') ? 'continuous' : 'single';
+		document.getElementById('playStyleBtn').innerHTML = (playStyle == 'single') ? '単発' : '継続';
+		displayOutput(playStyle == 'single'
+			? '単発モード: パズル終了後、元の盤面に戻します<br />'
+			: '継続モード: パズル終了後、消えた分のドロップを補充して次のパズルに移ります<br />', 0);
 	}
 	if (action == 'analyze') runAnalysis();
 	if (action == 'analyzelevel') {

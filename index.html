@@ -7,9 +7,9 @@
 	<title>Puzzle Practice</title>
 	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
-	<link rel="stylesheet" type="text/css" href="pad.css?v3">
+	<link rel="stylesheet" type="text/css" href="pad.css?v4">
 	<link rel="shortcut icon" href="favicon.ico" />
-	<script src="pad.js?v3"></script>
+	<script src="pad.js?v4"></script>
 </head>
 <body><div id="wrapwrap">
 	<div id="lineback">
@@ -60,6 +60,17 @@
 			<button class="paletteSwatch heart" onclick="requestAction('selectpaint', 'heart')" title="Heart"></button>
 			<button class="paletteSwatch jammer" onclick="requestAction('selectpaint', 'jammer')" title="Jammer"></button>
 			<button class="paletteSwatch poison" onclick="requestAction('selectpaint', 'poison')" title="Poison"></button>
+			<div id="genConfig">
+				Random生成(タップで色ON/OFF、数字で個数指定):
+				<div id="genCols">
+					<span class="genCol"><button id="genChip-red" class="genChip red selected" onclick="requestAction('genchip', 'red')"></button><input id="genCount-red" class="genCount" type="number" min="0" placeholder="-"></span>
+					<span class="genCol"><button id="genChip-blue" class="genChip blue selected" onclick="requestAction('genchip', 'blue')"></button><input id="genCount-blue" class="genCount" type="number" min="0" placeholder="-"></span>
+					<span class="genCol"><button id="genChip-green" class="genChip green selected" onclick="requestAction('genchip', 'green')"></button><input id="genCount-green" class="genCount" type="number" min="0" placeholder="-"></span>
+					<span class="genCol"><button id="genChip-light" class="genChip light selected" onclick="requestAction('genchip', 'light')"></button><input id="genCount-light" class="genCount" type="number" min="0" placeholder="-"></span>
+					<span class="genCol"><button id="genChip-dark" class="genChip dark selected" onclick="requestAction('genchip', 'dark')"></button><input id="genCount-dark" class="genCount" type="number" min="0" placeholder="-"></span>
+					<span class="genCol"><button id="genChip-heart" class="genChip heart selected" onclick="requestAction('genchip', 'heart')"></button><input id="genCount-heart" class="genCount" type="number" min="0" placeholder="-"></span>
+				</div>
+			</div>
 		</div>
 		<div id="board">
 			<div id="boardBg"></div>
@@ -71,12 +82,13 @@
 		</div>
 	</div>
 	<div id="buttons">
-		<button id="random" onclick="requestAction('randomize')">Random</button>
-		<button onclick="requestAction('loadboard')">Reset</button>
-		<button onclick="requestAction('replay')">Replay</button>
-		<button onclick="requestAction('copypattern')">Share</button>
-		<button onclick="requestAction('changetheworld')">CtW</button>
-		<button onclick="requestAction('skyfall')">SkyFall</button>
+		<button id="random" class="editOnly" onclick="requestAction('editrandom')">Random</button>
+		<button class="playOnly" onclick="requestAction('loadboard')">Reset</button>
+		<button class="playOnly" onclick="requestAction('replay')">Replay</button>
+		<button class="playOnly" onclick="requestAction('copypattern')">Share</button>
+		<button class="playOnly" onclick="requestAction('changetheworld')">CtW</button>
+		<button class="playOnly" id="skyfallBtn" onclick="requestAction('skyfall')">落ちコン</button>
+		<button class="playOnly" id="playStyleBtn" onclick="requestAction('playstyle')">単発</button>
 		<div id="colorchange"><textarea id="entry" maxlength=30></textarea>
 		<button onclick="requestAction('applypattern');" id="convert" style="margin-bottom:10px">apply</button>
 		<input type="text" placeholder="H" maxlength="2" id="colorfrom" name="colorfrom">
