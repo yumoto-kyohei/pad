@@ -730,41 +730,41 @@ function computeSegmentOffsets(moveSet){
 	return segOffsets;
 }
 
-// Draws the route as a series of smoothed "runs": consecutive segments
-// that share the same lane offset (i.e. the same pass through the
-// board, however many corners it turns) are grouped into one smooth
-// stroke. Wherever the lane changes — a different pass revisiting an
-// edge already used earlier — a new run starts, so overlapping passes
-// render as distinct (if closely-packed) lines instead of being
-// blended/averaged away.
+// Builds one continuous point sequence for the whole route: each
+// waypoint is placed at its incoming segment's lane offset, and — only
+// where the lane actually changes (a different pass than the segment
+// before it) — an extra point is inserted right after it at the
+// outgoing segment's offset. Since the two points sit at (almost) the
+// same board position but different lanes, drawSmoothPath's corner
+// rounding turns that short hop into a small connecting curve, so
+// lane changes read as one unbroken line instead of separate strokes
+// that visibly disconnect at the handoff.
+function buildOffsetPolyline(moveSet, revealCount){
+	if (revealCount === undefined) revealCount = moveSet.length;
+	var pts = movePathPoints(moveSet);
+	var segOffsets = computeSegmentOffsets(moveSet);
+	var out = [];
+	out.push({ x: pts[0].x + segOffsets[0].x, y: pts[0].y + segOffsets[0].y });
+	for (var i = 1; i < revealCount - 1; i++){
+		var inOff = segOffsets[i-1], outOff = segOffsets[i];
+		out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
+		if (inOff.x !== outOff.x || inOff.y !== outOff.y){
+			out.push({ x: pts[i].x + outOff.x, y: pts[i].y + outOff.y });
+		}
+	}
+	var lastIdx = revealCount - 1;
+	var lastOff = segOffsets[lastIdx - 1];
+	out.push({ x: pts[lastIdx].x + lastOff.x, y: pts[lastIdx].y + lastOff.y });
+	return out;
+}
+
 function drawRoutePath(ctx, moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	if (revealCount < 2) return;
-	var pts = movePathPoints(moveSet);
-	var segOffsets = computeSegmentOffsets(moveSet);
-	var runs = [];
-	var current = null;
-	for (var i = 1; i < revealCount; i++){
-		var off = segOffsets[i-1];
-		if (current && current.offset.x === off.x && current.offset.y === off.y){
-			current.points.push({ x: pts[i].x + off.x, y: pts[i].y + off.y });
-		}
-		else {
-			current = { offset: off, points: [
-				{ x: pts[i-1].x + off.x, y: pts[i-1].y + off.y },
-				{ x: pts[i].x + off.x, y: pts[i].y + off.y }
-			]};
-			runs.push(current);
-		}
-	}
-	for (var r = 0; r < runs.length; r++) drawSmoothPath(ctx, runs[r].points);
-	if (runs.length){
-		var firstPt = runs[0].points[0];
-		var lastRun = runs[runs.length - 1];
-		var lastPt = lastRun.points[lastRun.points.length - 1];
-		drawRouteDot(ctx, firstPt.x, firstPt.y, 8, '#fff');
-		drawRouteDot(ctx, lastPt.x, lastPt.y, 9, '#cf0');
-	}
+	var points = buildOffsetPolyline(moveSet, revealCount);
+	drawSmoothPath(ctx, points);
+	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
+	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
 }
 
 // Draws one continuous path through the given points: straight runs stay
