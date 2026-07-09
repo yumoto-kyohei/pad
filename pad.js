@@ -669,7 +669,7 @@ function calculateOutput(item){
 	}
 }
 
-function drawRouteDot(ctx, x, y, radius, fillStyle){
+function drawRouteDot(ctx, x, y, radius, fillStyle, label, labelColor){
 	ctx.beginPath();
 	ctx.arc(x, y, radius, 0, Math.PI*2);
 	ctx.fillStyle = fillStyle;
@@ -677,6 +677,13 @@ function drawRouteDot(ctx, x, y, radius, fillStyle){
 	ctx.lineWidth = 2;
 	ctx.strokeStyle = '#000';
 	ctx.stroke();
+	if (label){
+		ctx.fillStyle = labelColor || '#000';
+		ctx.font = 'bold ' + Math.round(radius*1.3) + 'px sans-serif';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText(label, x, y + 1);
+	}
 }
 
 function pointDistance(a, b){
@@ -704,28 +711,43 @@ function movePathPoints(moveSet){
 var ROUTE_LINE_WIDTH = 7;
 var ROUTE_EDGE_WIDTH = 2.25;
 
-// One offset per segment: repeat visits to the same cell-to-cell edge
-// get pushed into alternating parallel "lanes" (0, +1, -1, +2, -2, ...).
-// The offset is kept small (about one line-width) — lanes are meant to
-// sit right up against each other, distinguished by their dark edges
-// rather than by a gap, so the route doesn't drift far from the real
-// board positions. The perpendicular is taken relative to the edge's
+// n=0 -> lane 0, n=1 -> +1, n=2 -> -1, n=3 -> +2, n=4 -> -2, ...
+function laneAt(n){
+	if (n === 0) return 0;
+	return Math.ceil(n/2) * ((n % 2 === 1) ? 1 : -1);
+}
+
+// One offset per segment, computed so the route only shifts lanes when
+// it actually has to. Each edge (cell-to-cell connection) remembers
+// which lanes have already been drawn on it; the route keeps riding its
+// current lane across fresh edges (lines don't need to pass through the
+// drop's exact centre) and only hops to a new, unused lane for that
+// edge when it would otherwise redraw directly on top of an earlier
+// pass. This avoids the old behaviour of snapping back to the centre
+// lane the moment a repeated section ends, which read as an unnatural
+// diagonal kink. The perpendicular is taken relative to the edge's
 // canonical (low-index-to-high-index) direction, so traversals in
 // either direction share the same lane geometry.
 function computeSegmentOffsets(moveSet){
 	var laneGap = ROUTE_LINE_WIDTH;
-	var edgeCounts = {};
+	var edgeLanesUsed = {};
 	var segOffsets = [];
+	var currentLane = 0;
 	for (var i = 1; i < moveSet.length; i++){
 		var lo = Math.min(moveSet[i-1], moveSet[i]);
 		var hi = Math.max(moveSet[i-1], moveSet[i]);
 		var key = lo + '_' + hi;
-		var k = edgeCounts[key] || 0;
-		edgeCounts[key] = k + 1;
-		var lane = (k === 0) ? 0 : Math.ceil(k/2) * ((k % 2 === 1) ? 1 : -1);
+		var used = edgeLanesUsed[key] || (edgeLanesUsed[key] = {});
+		if (used[currentLane]){
+			for (var n = 0; ; n++){
+				var candidate = laneAt(n);
+				if (!used[candidate]){ currentLane = candidate; break; }
+			}
+		}
+		used[currentLane] = true;
 		var dx = (hi % rows) - (lo % rows);
 		var dy = Math.floor(hi / rows) - Math.floor(lo / rows);
-		segOffsets.push({ x: -dy * lane * laneGap, y: dx * lane * laneGap });
+		segOffsets.push({ x: -dy * currentLane * laneGap, y: dx * currentLane * laneGap });
 	}
 	return segOffsets;
 }
@@ -739,32 +761,86 @@ function computeSegmentOffsets(moveSet){
 // rounding turns that short hop into a small connecting curve, so
 // lane changes read as one unbroken line instead of separate strokes
 // that visibly disconnect at the handoff.
+// Also returns moveIdx[k] = which moveSet step polyline point k belongs
+// to (used to redraw a small piece "on top" at crossings) and, per
+// moveSet step, the single point that represents it (stepPoint) for
+// crossing detection.
 function buildOffsetPolyline(moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	var pts = movePathPoints(moveSet);
 	var segOffsets = computeSegmentOffsets(moveSet);
-	var out = [];
-	out.push({ x: pts[0].x + segOffsets[0].x, y: pts[0].y + segOffsets[0].y });
+	var out = [], moveIdx = [], stepPoint = [];
+	var p0 = { x: pts[0].x + segOffsets[0].x, y: pts[0].y + segOffsets[0].y };
+	out.push(p0); moveIdx.push(0); stepPoint.push(p0);
 	for (var i = 1; i < revealCount - 1; i++){
 		var inOff = segOffsets[i-1], outOff = segOffsets[i];
-		out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
+		var pIn = { x: pts[i].x + inOff.x, y: pts[i].y + inOff.y };
+		out.push(pIn); moveIdx.push(i);
+		stepPoint.push(pIn);
 		if (inOff.x !== outOff.x || inOff.y !== outOff.y){
 			out.push({ x: pts[i].x + outOff.x, y: pts[i].y + outOff.y });
+			moveIdx.push(i);
 		}
 	}
 	var lastIdx = revealCount - 1;
 	var lastOff = segOffsets[lastIdx - 1];
-	out.push({ x: pts[lastIdx].x + lastOff.x, y: pts[lastIdx].y + lastOff.y });
-	return out;
+	var pLast = { x: pts[lastIdx].x + lastOff.x, y: pts[lastIdx].y + lastOff.y };
+	out.push(pLast); moveIdx.push(lastIdx); stepPoint.push(pLast);
+	return { points: out, moveIdx: moveIdx, stepPoint: stepPoint };
+}
+
+// Where the route revisits a board cell it already passed near (a real
+// crossing, not just a lane-change stitch at the same waypoint), the
+// earlier pass gets a small gap punched out of it and the later pass is
+// redrawn locally on top — so at an intersection, whichever traversal
+// happened more recently reads as being "on top" of the other.
+function drawRouteCrossings(ctx, moveSet, built){
+	var points = built.points, moveIdx = built.moveIdx, stepPoint = built.stepPoint;
+	var byCell = {};
+	for (var i = 0; i < stepPoint.length; i++){
+		var cell = moveSet[i];
+		(byCell[cell] = byCell[cell] || []).push(i);
+	}
+	var threshold = ROUTE_LINE_WIDTH * 1.3;
+	var punchRadius = ROUTE_LINE_WIDTH/2 + 2;
+	var toPunch = [], toRedraw = [];
+	for (var cellKey in byCell){
+		var idxs = byCell[cellKey];
+		if (idxs.length < 2) continue;
+		for (var a = 0; a < idxs.length - 1; a++){
+			for (var b = a+1; b < idxs.length; b++){
+				if (pointDistance(stepPoint[idxs[a]], stepPoint[idxs[b]]) < threshold){
+					toPunch.push(idxs[a]);
+					break;
+				}
+			}
+		}
+		toRedraw.push(idxs[idxs.length-1]);
+	}
+	toPunch.forEach(function(i){
+		var p = stepPoint[i];
+		ctx.clearRect(p.x - punchRadius, p.y - punchRadius, punchRadius*2, punchRadius*2);
+	});
+	toRedraw.forEach(function(stepI){
+		var first = -1, last = -1;
+		for (var k = 0; k < moveIdx.length; k++){
+			if (moveIdx[k] === stepI){ if (first === -1) first = k; last = k; }
+		}
+		if (first === -1) return;
+		var segStart = Math.max(0, first - 1), segEnd = Math.min(points.length - 1, last + 1);
+		if (segEnd - segStart >= 1) drawSmoothPath(ctx, points.slice(segStart, segEnd + 1));
+	});
 }
 
 function drawRoutePath(ctx, moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	if (revealCount < 2) return;
-	var points = buildOffsetPolyline(moveSet, revealCount);
-	drawSmoothPath(ctx, points);
-	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
-	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
+	var built = buildOffsetPolyline(moveSet, revealCount);
+	drawSmoothPath(ctx, built.points);
+	drawRouteCrossings(ctx, moveSet.slice(0, revealCount), built);
+	var points = built.points;
+	drawRouteDot(ctx, points[0].x, points[0].y, 10, '#2ecc40', 's', '#ffe600');
+	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 10, '#e64545', 'g', '#ffe600');
 }
 
 // Draws one continuous path through the given points: straight runs stay
