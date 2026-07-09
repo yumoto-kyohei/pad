@@ -843,7 +843,7 @@ function drawSmoothPath(ctx, points){
 	ctx.lineJoin = 'round';
 	tracePath();
 	ctx.lineWidth = ROUTE_LINE_WIDTH;
-	ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+	ctx.strokeStyle = '#1a1a1a';
 	ctx.stroke();
 	tracePath();
 	ctx.lineWidth = ROUTE_LINE_WIDTH - ROUTE_EDGE_WIDTH*2;
