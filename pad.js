@@ -761,84 +761,45 @@ function computeSegmentOffsets(moveSet){
 // rounding turns that short hop into a small connecting curve, so
 // lane changes read as one unbroken line instead of separate strokes
 // that visibly disconnect at the handoff.
-// Also returns moveIdx[k] = which moveSet step polyline point k belongs
-// to (used to redraw a small piece "on top" at crossings) and, per
-// moveSet step, the single point that represents it (stepPoint) for
-// crossing detection.
 function buildOffsetPolyline(moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	var pts = movePathPoints(moveSet);
 	var segOffsets = computeSegmentOffsets(moveSet);
-	var out = [], moveIdx = [], stepPoint = [];
-	var p0 = { x: pts[0].x + segOffsets[0].x, y: pts[0].y + segOffsets[0].y };
-	out.push(p0); moveIdx.push(0); stepPoint.push(p0);
+	var out = [];
+	out.push({ x: pts[0].x + segOffsets[0].x, y: pts[0].y + segOffsets[0].y });
 	for (var i = 1; i < revealCount - 1; i++){
 		var inOff = segOffsets[i-1], outOff = segOffsets[i];
-		var pIn = { x: pts[i].x + inOff.x, y: pts[i].y + inOff.y };
-		out.push(pIn); moveIdx.push(i);
-		stepPoint.push(pIn);
+		out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
 		if (inOff.x !== outOff.x || inOff.y !== outOff.y){
 			out.push({ x: pts[i].x + outOff.x, y: pts[i].y + outOff.y });
-			moveIdx.push(i);
 		}
 	}
 	var lastIdx = revealCount - 1;
 	var lastOff = segOffsets[lastIdx - 1];
-	var pLast = { x: pts[lastIdx].x + lastOff.x, y: pts[lastIdx].y + lastOff.y };
-	out.push(pLast); moveIdx.push(lastIdx); stepPoint.push(pLast);
-	return { points: out, moveIdx: moveIdx, stepPoint: stepPoint };
+	out.push({ x: pts[lastIdx].x + lastOff.x, y: pts[lastIdx].y + lastOff.y });
+	return out;
 }
 
-// Where the route revisits a board cell it already passed near (a real
-// crossing, not just a lane-change stitch at the same waypoint), the
-// earlier pass gets a small gap punched out of it and the later pass is
-// redrawn locally on top — so at an intersection, whichever traversal
-// happened more recently reads as being "on top" of the other.
-function drawRouteCrossings(ctx, moveSet, built){
-	var points = built.points, moveIdx = built.moveIdx, stepPoint = built.stepPoint;
-	var byCell = {};
-	for (var i = 0; i < stepPoint.length; i++){
-		var cell = moveSet[i];
-		(byCell[cell] = byCell[cell] || []).push(i);
-	}
-	var threshold = ROUTE_LINE_WIDTH * 1.3;
-	var punchRadius = ROUTE_LINE_WIDTH/2 + 2;
-	var toPunch = [], toRedraw = [];
-	for (var cellKey in byCell){
-		var idxs = byCell[cellKey];
-		if (idxs.length < 2) continue;
-		for (var a = 0; a < idxs.length - 1; a++){
-			for (var b = a+1; b < idxs.length; b++){
-				if (pointDistance(stepPoint[idxs[a]], stepPoint[idxs[b]]) < threshold){
-					toPunch.push(idxs[a]);
-					break;
-				}
-			}
-		}
-		toRedraw.push(idxs[idxs.length-1]);
-	}
-	toPunch.forEach(function(i){
-		var p = stepPoint[i];
-		ctx.clearRect(p.x - punchRadius, p.y - punchRadius, punchRadius*2, punchRadius*2);
-	});
-	toRedraw.forEach(function(stepI){
-		var first = -1, last = -1;
-		for (var k = 0; k < moveIdx.length; k++){
-			if (moveIdx[k] === stepI){ if (first === -1) first = k; last = k; }
-		}
-		if (first === -1) return;
-		var segStart = Math.max(0, first - 1), segEnd = Math.min(points.length - 1, last + 1);
-		if (segEnd - segStart >= 1) drawSmoothPath(ctx, points.slice(segStart, segEnd + 1));
-	});
-}
-
+// The whole route (every waypoint, every lane) is known up front — this
+// isn't drawn as a live animation, it's the finished path from a solved
+// puzzle or a solver result. So "which pass is on top" is decided by a
+// simple painter's algorithm: walk the points in the order the route
+// was actually travelled, painting each segment (plus a little context
+// from its neighbours, so corners keep rounding correctly) as we go.
+// Consecutive windows overlap enough that a same-lane run still reads
+// as one unbroken line, and because later moves are painted after
+// earlier ones, wherever the route crosses or re-touches itself the
+// more recent pass naturally ends up on top — no separate crossing
+// detection or erasing needed.
 function drawRoutePath(ctx, moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	if (revealCount < 2) return;
-	var built = buildOffsetPolyline(moveSet, revealCount);
-	drawSmoothPath(ctx, built.points);
-	drawRouteCrossings(ctx, moveSet.slice(0, revealCount), built);
-	var points = built.points;
+	var points = buildOffsetPolyline(moveSet, revealCount);
+	for (var i = 0; i < points.length - 1; i++){
+		var windowStart = Math.max(0, i - 1);
+		var windowEnd = Math.min(points.length - 1, i + 2);
+		drawSmoothPath(ctx, points.slice(windowStart, windowEnd + 1));
+	}
 	drawRouteDot(ctx, points[0].x, points[0].y, 10, '#2ecc40', 's', '#ffe600');
 	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 10, '#e64545', 'g', '#ffe600');
 }
