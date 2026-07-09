@@ -697,17 +697,74 @@ function movePathPoints(moveSet){
 	});
 }
 
-// Draws the route as one continuous smoothed line through the tile
-// centres (no lane-offsetting for repeated edges — overlapping passes
-// simply draw on top of each other, which reads more clearly than
-// parallel offset lines).
+// Total rendered width of a route line, and how much of that width is
+// the dark edge (vs. the white core). Adjacent lanes are spaced exactly
+// one line-width apart, so their dark edges touch/overlap slightly —
+// that seam is what separates lanes, instead of a gap of empty space.
+var ROUTE_LINE_WIDTH = 7;
+var ROUTE_EDGE_WIDTH = 2.25;
+
+// One offset per segment: repeat visits to the same cell-to-cell edge
+// get pushed into alternating parallel "lanes" (0, +1, -1, +2, -2, ...).
+// The offset is kept small (about one line-width) — lanes are meant to
+// sit right up against each other, distinguished by their dark edges
+// rather than by a gap, so the route doesn't drift far from the real
+// board positions. The perpendicular is taken relative to the edge's
+// canonical (low-index-to-high-index) direction, so traversals in
+// either direction share the same lane geometry.
+function computeSegmentOffsets(moveSet){
+	var laneGap = ROUTE_LINE_WIDTH;
+	var edgeCounts = {};
+	var segOffsets = [];
+	for (var i = 1; i < moveSet.length; i++){
+		var lo = Math.min(moveSet[i-1], moveSet[i]);
+		var hi = Math.max(moveSet[i-1], moveSet[i]);
+		var key = lo + '_' + hi;
+		var k = edgeCounts[key] || 0;
+		edgeCounts[key] = k + 1;
+		var lane = (k === 0) ? 0 : Math.ceil(k/2) * ((k % 2 === 1) ? 1 : -1);
+		var dx = (hi % rows) - (lo % rows);
+		var dy = Math.floor(hi / rows) - Math.floor(lo / rows);
+		segOffsets.push({ x: -dy * lane * laneGap, y: dx * lane * laneGap });
+	}
+	return segOffsets;
+}
+
+// Draws the route as a series of smoothed "runs": consecutive segments
+// that share the same lane offset (i.e. the same pass through the
+// board, however many corners it turns) are grouped into one smooth
+// stroke. Wherever the lane changes — a different pass revisiting an
+// edge already used earlier — a new run starts, so overlapping passes
+// render as distinct (if closely-packed) lines instead of being
+// blended/averaged away.
 function drawRoutePath(ctx, moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	if (revealCount < 2) return;
-	var points = movePathPoints(moveSet).slice(0, revealCount);
-	drawSmoothPath(ctx, points);
-	drawRouteDot(ctx, points[0].x, points[0].y, 8, '#fff');
-	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 9, '#cf0');
+	var pts = movePathPoints(moveSet);
+	var segOffsets = computeSegmentOffsets(moveSet);
+	var runs = [];
+	var current = null;
+	for (var i = 1; i < revealCount; i++){
+		var off = segOffsets[i-1];
+		if (current && current.offset.x === off.x && current.offset.y === off.y){
+			current.points.push({ x: pts[i].x + off.x, y: pts[i].y + off.y });
+		}
+		else {
+			current = { offset: off, points: [
+				{ x: pts[i-1].x + off.x, y: pts[i-1].y + off.y },
+				{ x: pts[i].x + off.x, y: pts[i].y + off.y }
+			]};
+			runs.push(current);
+		}
+	}
+	for (var r = 0; r < runs.length; r++) drawSmoothPath(ctx, runs[r].points);
+	if (runs.length){
+		var firstPt = runs[0].points[0];
+		var lastRun = runs[runs.length - 1];
+		var lastPt = lastRun.points[lastRun.points.length - 1];
+		drawRouteDot(ctx, firstPt.x, firstPt.y, 8, '#fff');
+		drawRouteDot(ctx, lastPt.x, lastPt.y, 9, '#cf0');
+	}
 }
 
 // Draws one continuous path through the given points: straight runs stay
@@ -733,11 +790,11 @@ function drawSmoothPath(ctx, points){
 	ctx.lineCap = 'round';
 	ctx.lineJoin = 'round';
 	tracePath();
-	ctx.lineWidth = 6;
-	ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+	ctx.lineWidth = ROUTE_LINE_WIDTH;
+	ctx.strokeStyle = 'rgba(0,0,0,0.75)';
 	ctx.stroke();
 	tracePath();
-	ctx.lineWidth = 2.5;
+	ctx.lineWidth = ROUTE_LINE_WIDTH - ROUTE_EDGE_WIDTH*2;
 	ctx.strokeStyle = '#fff';
 	ctx.stroke();
 }
