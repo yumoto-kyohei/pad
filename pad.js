@@ -752,15 +752,20 @@ function computeSegmentOffsets(moveSet){
 	return segOffsets;
 }
 
-// Builds one continuous point sequence for the whole route: each
-// waypoint is placed at its incoming segment's lane offset, and — only
-// where the lane actually changes (a different pass than the segment
-// before it) — an extra point is inserted right after it at the
-// outgoing segment's offset. Since the two points sit at (almost) the
-// same board position but different lanes, drawSmoothPath's corner
-// rounding turns that short hop into a small connecting curve, so
-// lane changes read as one unbroken line instead of separate strokes
-// that visibly disconnect at the handoff.
+// Builds one continuous point sequence for the whole route. At each
+// waypoint where the lane changes (a different pass than the segment
+// before it):
+//  - If the incoming and outgoing segments are collinear (a straight
+//    continuation), two close points are inserted (one per lane) so
+//    drawSmoothPath's rounding turns the small sideways hop into a
+//    short connecting stitch — this is what keeps a repeated section
+//    flowing into a fresh one without a visible break.
+//  - If they're not collinear (an actual turn), inserting two separate
+//    points there would fight the corner's own rounding — a small
+//    sideways stitch competing with a large direction-change curve
+//    reads as a harsh kink, as if the outgoing line snapped back to
+//    the drop's centre. So turns instead get a single point at the
+//    blended offset, letting the corner curve normally.
 function buildOffsetPolyline(moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	var pts = movePathPoints(moveSet);
@@ -769,8 +774,18 @@ function buildOffsetPolyline(moveSet, revealCount){
 	out.push({ x: pts[0].x + segOffsets[0].x, y: pts[0].y + segOffsets[0].y });
 	for (var i = 1; i < revealCount - 1; i++){
 		var inOff = segOffsets[i-1], outOff = segOffsets[i];
-		out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
-		if (inOff.x !== outOff.x || inOff.y !== outOff.y){
+		if (inOff.x === outOff.x && inOff.y === outOff.y){
+			out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
+			continue;
+		}
+		var inDir = { x: pts[i].x - pts[i-1].x, y: pts[i].y - pts[i-1].y };
+		var outDir = { x: pts[i+1].x - pts[i].x, y: pts[i+1].y - pts[i].y };
+		var cross = inDir.x*outDir.y - inDir.y*outDir.x;
+		if (Math.abs(cross) > 0.5){
+			out.push({ x: pts[i].x + (inOff.x+outOff.x)/2, y: pts[i].y + (inOff.y+outOff.y)/2 });
+		}
+		else {
+			out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
 			out.push({ x: pts[i].x + outOff.x, y: pts[i].y + outOff.y });
 		}
 	}
