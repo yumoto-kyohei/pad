@@ -761,12 +761,14 @@ function drawMoveRoute(){
 var analysisSolutions = [];
 var analysisRunning = false;
 var analysisLevel = 'fast';
-// Deeper levels search longer routes with a wider beam; the search is
-// chunked per depth so the page stays responsive even at 50 moves.
+// Deeper levels search longer routes with a much wider beam, trading
+// time for accuracy (roughly 2-3s / 7s / 12s on a mid-range device).
+// The search is chunked per depth so the page stays responsive even at
+// the higher settings.
 var ANALYSIS_LEVELS = {
-	fast:   { depth: 25, beam: 200 },
-	normal: { depth: 35, beam: 300 },
-	deep:   { depth: 50, beam: 400 }
+	fast:   { depth: 25, beam: 2200, extraDepthAfterBest: 3 },
+	normal: { depth: 35, beam: 4200, extraDepthAfterBest: 5 },
+	deep:   { depth: 50, beam: 4500, extraDepthAfterBest: 8 }
 };
 
 function boardArrayFromDivs(){
@@ -886,7 +888,7 @@ function runAnalysis(){
 	clearMemory('arrows');
 	var base = boardArrayFromDivs();
 	var levelParams = ANALYSIS_LEVELS[analysisLevel] || ANALYSIS_LEVELS.fast;
-	var maxDepth = levelParams.depth, beamWidth = levelParams.beam, extraDepthAfterBest = 3;
+	var maxDepth = levelParams.depth, beamWidth = levelParams.beam, extraDepthAfterBest = levelParams.extraDepthAfterBest;
 	var target = maxPossibleCombosFromCounts(base);
 	var best = 0, bestFoundDepth = -1;
 	// Solutions are kept per combo count (best tier and one below) so the
