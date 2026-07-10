@@ -1,0 +1,48 @@
+#rankingsRoot {
+	width:100%;
+	max-width:500px;
+	margin:20px auto 0;
+	background:#fff;
+	padding:20px;
+	box-sizing:border-box;
+	border-left:1px solid #d2d2d2;
+	border-right:1px solid #d2d2d2;
+	border-top:1px solid #d2d2d2;
+	min-height:100px;
+}
+#rankingsStatus {
+	color:#888;
+}
+#rankingsRoot h2 {
+	font-size:16px;
+	margin:0 0 10px;
+	padding-bottom:6px;
+	border-bottom:2px solid #318dbe;
+}
+#leaderboardSection {
+	margin-bottom:28px;
+}
+#leaderboardList {
+	padding-left:22px;
+}
+#leaderboardList li {
+	padding:3px 0;
+}
+#historyTable {
+	width:100%;
+	border-collapse:collapse;
+	font-size:13px;
+}
+#historyTable th, #historyTable td {
+	padding:5px 6px;
+	border-bottom:1px solid #eee;
+	text-align:left;
+}
+#historyTable th:first-child, #historyTable td:first-child {
+	width:34px;
+	text-align:right;
+}
+#historyTable thead th {
+	border-bottom:2px solid #d2d2d2;
+	color:#666;
+}

@@ -1,0 +1,59 @@
+#hamburgerBtn {
+	float:left;
+	margin:2px 6px 2px 2px;
+	width:20px;
+	height:20px;
+	cursor:pointer;
+	background:none;
+	border:0;
+	padding:2px 0;
+}
+#hamburgerBtn span {
+	display:block;
+	width:20px;
+	height:2px;
+	background:#1f201f;
+	margin:4px 0;
+}
+#menuOverlay {
+	display:none;
+	position:fixed;
+	top:0; left:0; right:0; bottom:0;
+	background:rgba(0,0,0,0.3);
+	z-index:99;
+}
+#menuOverlay.open {
+	display:block;
+}
+#sideMenu {
+	position:fixed;
+	top:0; left:-240px;
+	width:220px;
+	height:100%;
+	background:#fff;
+	border-right:1px solid #d2d2d2;
+	box-shadow:2px 0 8px rgba(0,0,0,0.15);
+	transition:left .25s ease;
+	z-index:100;
+	padding:50px 0 20px;
+	box-sizing:border-box;
+}
+#sideMenu.open {
+	left:0;
+}
+#sideMenu a {
+	display:block;
+	padding:12px 20px;
+	color:#1f201f;
+	text-decoration:none;
+	font-weight:bold;
+}
+#sideMenu a:hover {
+	background:#eee;
+}
+#sideMenu a.active {
+	color:#318dbe;
+	background:#f0f8fc;
+	border-left:3px solid #318dbe;
+	padding-left:17px;
+}

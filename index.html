@@ -8,11 +8,13 @@
 	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="pad.css?v5">
+	<link rel="stylesheet" type="text/css" href="menu.css?v1">
 	<link rel="shortcut icon" href="favicon.ico" />
 	<script src="pad.js?v5"></script>
 </head>
 <body><div id="wrapwrap">
 	<div id="lineback">
+		<button id="hamburgerBtn" aria-label="メニュー"><span></span><span></span><span></span></button>
 		<button onclick="requestAction('help')" class="topbutton image3">?</button>
 		<button onclick="requestAction('options')" class="topbutton image6">Options</button>
 		<div style="float:right;line-height:25px">
@@ -115,5 +117,11 @@
 	<div id="infobooth">
 	</div><script src="jquery.ui.touch-punch.min.js"></script>
 </div>
+<div id="menuOverlay"></div>
+<nav id="sideMenu">
+	<a href="index.html" class="active">パズル練習</a>
+	<a href="rankings.html">歴代王者</a>
+</nav>
+<script src="menu.js?v1"></script>
 </body>
 </html>
