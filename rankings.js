@@ -51,12 +51,23 @@
 		var ascending = records.slice().sort(function (a, b) { return Number(a.No) - Number(b.No); });
 		var tally = {};
 		var lastWin = {};
+		var seenNames = {};
+		var champCounter = 0;
 		ascending.forEach(function (r) {
 			if (!r['優勝者名']) return;
 			var person = r['本人'] || r['優勝者名'];
 			tally[person] = (tally[person] || 0) + 1;
 			r._runningCount = tally[person];
 			lastWin[person] = { no: r.No, dungeon: r['ダンジョン名'] };
+
+			// a distinct display name shows up for the first time = a new champion,
+			// even if it's an alt account of someone who has already won before
+			var dispName = r['優勝者名'];
+			if (!seenNames[dispName]) {
+				seenNames[dispName] = true;
+				champCounter++;
+				r._champNumber = champCounter;
+			}
 		});
 
 		var leaderboard = Object.keys(tally)
@@ -84,7 +95,14 @@
 				order.push(r.No);
 			}
 			if (r['優勝者名']) {
-				var label = r['優勝者名'] + (r['身元不明'] === 'TRUE' ? '？' : '') + '（' + r._runningCount + '）';
+				var label = r['優勝者名'] + (r['身元不明'] === 'TRUE' ? '？' : '');
+				if (r._champNumber) {
+					label += r._runningCount > 1
+						? '（' + r._runningCount + '・' + r._champNumber + '人目の王者）'
+						: '（' + r._champNumber + '人目の王者）';
+				} else {
+					label += '（' + r._runningCount + '）';
+				}
 				byNo[r.No].winners.push(label);
 			}
 		});
