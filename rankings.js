@@ -46,14 +46,21 @@
 	}
 
 	function render(records) {
+		// walk chronologically (oldest No first) to compute each person's running
+		// win count and their most recent win, then attach it back onto the record
+		var ascending = records.slice().sort(function (a, b) { return Number(a.No) - Number(b.No); });
 		var tally = {};
-		records.forEach(function (r) {
+		var lastWin = {};
+		ascending.forEach(function (r) {
 			if (!r['優勝者名']) return;
 			var person = r['本人'] || r['優勝者名'];
 			tally[person] = (tally[person] || 0) + 1;
+			r._runningCount = tally[person];
+			lastWin[person] = { no: r.No, dungeon: r['ダンジョン名'] };
 		});
+
 		var leaderboard = Object.keys(tally)
-			.map(function (name) { return { name: name, count: tally[name] }; })
+			.map(function (name) { return { name: name, count: tally[name], last: lastWin[name] }; })
 			.sort(function (a, b) { return b.count - a.count; });
 
 		var lbList = document.getElementById('leaderboardList');
@@ -61,6 +68,10 @@
 		leaderboard.forEach(function (item) {
 			var li = document.createElement('li');
 			li.textContent = item.name + '（' + item.count + '回）';
+			var lastSpan = document.createElement('span');
+			lastSpan.className = 'lastWin';
+			lastSpan.textContent = '　最新: ' + item.last.dungeon;
+			li.appendChild(lastSpan);
 			lbList.appendChild(li);
 		});
 
@@ -73,7 +84,8 @@
 				order.push(r.No);
 			}
 			if (r['優勝者名']) {
-				byNo[r.No].winners.push(r['優勝者名'] + (r['身元不明'] === 'TRUE' ? '？' : ''));
+				var label = r['優勝者名'] + (r['身元不明'] === 'TRUE' ? '？' : '') + '（' + r._runningCount + '）';
+				byNo[r.No].winners.push(label);
 			}
 		});
 		var groups = order

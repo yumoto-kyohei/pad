@@ -28,6 +28,10 @@
 #leaderboardList li {
 	padding:3px 0;
 }
+.lastWin {
+	color:#888;
+	font-size:12px;
+}
 #historyTable {
 	width:100%;
 	border-collapse:collapse;
