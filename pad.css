@@ -1,15 +1,24 @@
+:root {
+	--accent: #4f7cff;
+	--accent2: #9a5cff;
+	--accent-gradient: linear-gradient(135deg, var(--accent), var(--accent2));
+	--panel-bg: #fff;
+	--panel-border: #e1e4ee;
+	--text-muted: #8a8f9c;
+	--shadow: 0 2px 10px rgba(30,40,80,.07);
+}
 * {
 	border:0;
 	padding:0;
 	margin:0;
-	font: 14px/1.2 Verdana;
+	font: 14px/1.2 "Segoe UI", "Hiragino Sans", "Yu Gothic", Verdana, sans-serif;
 	line-height:140%
 }
 a, a:visited {
-	color:#318dbe
+	color:var(--accent)
 }
 body {
-	background:#f8f8f8;
+	background:#eef1fa;
 	overflow-x:hidden;
 }
 #wrapwrap {
@@ -18,15 +27,17 @@ body {
 	margin:0 auto;
 }
 #lineback {
-	border-left: 1px solid #d2d2d2;
-	border-right: 1px solid #d2d2d2;
 	width:100%;
 	max-width:540px;
 	margin:0 auto;
-	background:#fff;
+	background:var(--panel-bg);
 	box-sizing:border-box;
 	overflow:hidden;
 	padding:6px 0;
+	border-radius:0 0 10px 10px;
+	box-shadow:var(--shadow);
+	border-bottom:3px solid transparent;
+	border-image:var(--accent-gradient) 1;
 }
 #game {
 	margin-top:10px
@@ -38,13 +49,14 @@ body {
 }
 #board {
 	aspect-ratio: 6 / 5;
-	border:20px solid #1f201f;
+	border:20px solid #22242e;
 	clear:both;
 	width:100%;
 	max-width:540px;
 	margin: 0 auto;
 	position:relative;
 	box-sizing:border-box;
+	box-shadow:var(--shadow);
 }
 #boardBg {
 	position:absolute;
@@ -100,23 +112,22 @@ body {
 #infobooth {
 	width:100%;
 	max-width:500px;
-	background:#fff;
+	background:var(--panel-bg);
 	padding:20px;
 	margin: 0 auto;
-	border-left: 1px solid #d2d2d2;
-	border-right: 1px solid #d2d2d2;
+	border-radius:10px;
+	box-shadow:var(--shadow);
 	min-height:100px;
 	box-sizing:border-box;
 }
 #library {
 	width:100%;
 	max-width:500px;
-	background:#fff;
+	background:var(--panel-bg);
 	padding:20px;
 	margin: 20px auto 0;
-	border-left: 1px solid #d2d2d2;
-	border-right: 1px solid #d2d2d2;
-	border-top: 1px solid #d2d2d2;
+	border-radius:10px;
+	box-shadow:var(--shadow);
 	min-height:60px;
 	box-sizing:border-box;
 }
@@ -125,7 +136,7 @@ body {
 	margin-bottom:10px;
 }
 #libraryHeader button {
-	border: 1px solid #d2d2d2;
+	border: 1px solid var(--panel-border);
 	background:#f8f8f8;
 	padding:4px 10px;
 }
@@ -148,7 +159,7 @@ body {
 	margin-left:8px;
 }
 .libraryItem .libActions button {
-	border: 1px solid #d2d2d2;
+	border: 1px solid var(--panel-border);
 	background:#f8f8f8;
 	margin-left:6px;
 	padding:2px 8px;
@@ -213,7 +224,7 @@ body {
 	margin:0 auto;
 	width: 100%;
 	max-width:540px;
-	background-color: #fff;
+	background-color: transparent;
 	min-height:20px;
 	overflow:hidden;
 	box-sizing:border-box;
@@ -221,19 +232,27 @@ body {
 #buttons button {
 	width:16.666%;
 	box-sizing:border-box;
-	background: #f8f8f8;
+	background: var(--panel-bg);
 	float:left;
-	border: 1px solid #d2d2d2;
+	border: 1px solid var(--panel-border);
 	border-right: none;
+	padding:6px 0;
+	cursor:pointer;
+	transition: background-color .15s ease, color .15s ease;
 }
 #buttons button:first-child {
 	border-left: none;
+	border-radius:8px 0 0 8px;
+}
+#buttons button:last-child {
+	border-radius:0 8px 8px 0;
 }
 #colorchange button {
-	border: 1px solid #d2d2d2;
+	border: 1px solid var(--panel-border);
 }
 #buttons button:hover {
-	background: #eee
+	background: var(--accent-gradient);
+	color:#fff;
 }
 .tile, button {
 	-webkit-transition: opacity .4s ease-in-out;
@@ -309,18 +328,20 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 	display:inline-block;
 }
 .modebutton {
-	border: 1px solid #d2d2d2;
-	background:#f8f8f8;
-	padding:2px 8px;
+	border: 1px solid var(--panel-border);
+	background:var(--panel-bg);
+	padding:2px 10px;
 	line-height:18px;
+	border-radius:14px;
 	cursor:pointer;
+	transition: background-color .15s ease, color .15s ease, border-color .15s ease;
 }
 .modebutton:hover {
-	background:#eee;
+	background:#eef1fa;
 }
 .modebutton-active {
-	background:#318dbe;
-	border-color:#318dbe;
+	background:var(--accent-gradient);
+	border-color:transparent;
 	color:#fff;
 }
 
@@ -407,7 +428,7 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 	display:none;
 }
 #buttons button.toggled-on {
-	background:#318dbe;
+	background:var(--accent-gradient);
 	color:#fff;
 }
 #genConfig {
@@ -435,12 +456,12 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 }
 .genChip.selected {
 	opacity:1;
-	border-color:#318dbe;
+	border-color:var(--accent);
 }
 .genCount {
 	width:34px;
 	margin-top:2px;
-	border:1px solid #d2d2d2;
+	border:1px solid var(--panel-border);
 	text-align:center;
 	font-size:12px;
 	box-sizing:border-box;
@@ -454,7 +475,7 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 	padding:3px 0;
 }
 .analyzeItem button {
-	border:1px solid #d2d2d2;
+	border:1px solid var(--panel-border);
 	background:#f8f8f8;
 	padding:1px 8px;
 	margin-left:6px;
@@ -503,7 +524,7 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 	cursor:pointer;
 }
 .paletteSwatch.selected {
-	border-color:#318dbe;
+	border-color:var(--accent);
 }
 
 @media (max-width: 600px) {

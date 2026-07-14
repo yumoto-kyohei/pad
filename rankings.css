@@ -2,22 +2,22 @@
 	width:100%;
 	max-width:500px;
 	margin:20px auto 0;
-	background:#fff;
+	background:var(--panel-bg);
 	padding:20px;
 	box-sizing:border-box;
-	border-left:1px solid #d2d2d2;
-	border-right:1px solid #d2d2d2;
-	border-top:1px solid #d2d2d2;
+	border-radius:10px;
+	box-shadow:var(--shadow);
 	min-height:100px;
 }
 #rankingsStatus {
-	color:#888;
+	color:var(--text-muted);
 }
 #rankingsRoot h2 {
 	font-size:16px;
 	margin:0 0 10px;
-	padding-bottom:6px;
-	border-bottom:2px solid #318dbe;
+	padding-bottom:8px;
+	border-bottom:3px solid transparent;
+	border-image:var(--accent-gradient) 1;
 }
 #leaderboardSection {
 	margin-bottom:28px;
@@ -26,11 +26,47 @@
 	padding-left:22px;
 }
 #leaderboardList li {
-	padding:3px 0;
+	padding:5px 8px;
+	border-radius:8px;
+}
+#leaderboardList li.rank-gold {
+	background:linear-gradient(90deg, rgba(255,205,60,.22), transparent);
+	font-weight:bold;
+}
+#leaderboardList li.rank-silver {
+	background:linear-gradient(90deg, rgba(192,200,214,.28), transparent);
+	font-weight:bold;
+}
+#leaderboardList li.rank-bronze {
+	background:linear-gradient(90deg, rgba(214,152,101,.22), transparent);
+	font-weight:bold;
+}
+.lbName {
+	white-space:nowrap;
 }
 .lastWin {
-	color:#888;
+	color:var(--text-muted);
 	font-size:12px;
+}
+#speedrunSection {
+	margin-bottom:28px;
+}
+#speedrunTable {
+	width:100%;
+	border-collapse:collapse;
+	font-size:13px;
+}
+#speedrunTable th, #speedrunTable td {
+	padding:6px 8px;
+	border-bottom:1px solid var(--panel-border);
+	text-align:left;
+}
+#speedrunTable thead th {
+	border-bottom:2px solid var(--panel-border);
+	color:var(--text-muted);
+}
+#speedrunTable tbody tr:hover {
+	background:#f6f8fd;
 }
 #historyTable {
 	width:100%;
@@ -38,15 +74,19 @@
 	font-size:13px;
 }
 #historyTable th, #historyTable td {
-	padding:5px 6px;
-	border-bottom:1px solid #eee;
+	padding:6px 8px;
+	border-bottom:1px solid var(--panel-border);
 	text-align:left;
 }
 #historyTable th:first-child, #historyTable td:first-child {
 	width:34px;
 	text-align:right;
+	color:var(--text-muted);
 }
 #historyTable thead th {
-	border-bottom:2px solid #d2d2d2;
-	color:#666;
+	border-bottom:2px solid var(--panel-border);
+	color:var(--text-muted);
+}
+#historyTable tbody tr:hover {
+	background:#f6f8fd;
 }

@@ -31,8 +31,7 @@
 	width:220px;
 	height:100%;
 	background:#fff;
-	border-right:1px solid #d2d2d2;
-	box-shadow:2px 0 8px rgba(0,0,0,0.15);
+	box-shadow:2px 0 16px rgba(30,40,80,0.18);
 	transition:left .25s ease;
 	z-index:100;
 	padding:50px 0 20px;
@@ -44,16 +43,17 @@
 #sideMenu a {
 	display:block;
 	padding:12px 20px;
-	color:#1f201f;
+	color:#22242e;
 	text-decoration:none;
 	font-weight:bold;
+	border-left:3px solid transparent;
 }
 #sideMenu a:hover {
-	background:#eee;
+	background:#eef1fa;
 }
 #sideMenu a.active {
-	color:#318dbe;
-	background:#f0f8fc;
-	border-left:3px solid #318dbe;
+	color:var(--accent);
+	background:#eef1fa;
+	border-left:3px solid var(--accent);
 	padding-left:17px;
 }

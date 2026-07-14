@@ -5,9 +5,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="description" content="歴代ランキングダンジョン王者一覧" />
 	<title>歴代王者 - Puzzle Practice</title>
-	<link rel="stylesheet" type="text/css" href="pad.css?v5">
-	<link rel="stylesheet" type="text/css" href="menu.css?v1">
-	<link rel="stylesheet" type="text/css" href="rankings.css?v1">
+	<link rel="stylesheet" type="text/css" href="pad.css?v6">
+	<link rel="stylesheet" type="text/css" href="menu.css?v2">
+	<link rel="stylesheet" type="text/css" href="rankings.css?v2">
 	<link rel="shortcut icon" href="favicon.ico" />
 </head>
 <body><div id="wrapwrap">
@@ -22,6 +22,13 @@
 		<div id="leaderboardSection" style="display:none">
 			<h2>優勝回数ランキング</h2>
 			<ol id="leaderboardList"></ol>
+		</div>
+		<div id="speedrunSection" style="display:none">
+			<h2>歴代最速</h2>
+			<table id="speedrunTable">
+				<thead><tr><th>チャレンジ</th><th>優勝者</th></tr></thead>
+				<tbody></tbody>
+			</table>
 		</div>
 		<div id="historySection" style="display:none">
 			<h2>歴代ランキングダンジョン（<span id="dungeonCount"></span>件）</h2>
@@ -38,6 +45,6 @@
 	<a href="rankings.html" class="active">歴代王者</a>
 </nav>
 <script src="menu.js?v1"></script>
-<script src="rankings.js?v2"></script>
+<script src="rankings.js?v3"></script>
 </body>
 </html>

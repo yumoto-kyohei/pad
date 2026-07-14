@@ -72,8 +72,15 @@
 
 		var leaderboard = Object.keys(tally)
 			.map(function (name) { return { name: name, count: tally[name], last: lastWin[name] }; })
-			.sort(function (a, b) { return b.count - a.count; });
+			.sort(function (a, b) {
+				if (b.count !== a.count) return b.count - a.count;
+				// tie: whoever reached this win count first (i.e. their most
+				// recent win happened earlier) ranks above
+				return Number(a.last.no) - Number(b.last.no);
+			});
 
+		var RANK_MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
+		var RANK_CLASS = { 1: 'rank-gold', 2: 'rank-silver', 3: 'rank-bronze' };
 		var lbList = document.getElementById('leaderboardList');
 		lbList.innerHTML = '';
 		leaderboard.forEach(function (item, i) {
@@ -83,7 +90,11 @@
 			item._rank = rank;
 			var li = document.createElement('li');
 			li.value = rank;
-			li.textContent = item.name + '（' + item.count + '回）';
+			if (RANK_CLASS[rank]) li.className = RANK_CLASS[rank];
+			var nameSpan = document.createElement('span');
+			nameSpan.className = 'lbName';
+			nameSpan.textContent = (RANK_MEDAL[rank] ? RANK_MEDAL[rank] + ' ' : '') + item.name + '（' + item.count + '回）';
+			li.appendChild(nameSpan);
 			var lastSpan = document.createElement('span');
 			lastSpan.className = 'lastWin';
 			lastSpan.textContent = '　最新: ' + item.last.dungeon;
@@ -91,10 +102,13 @@
 			lbList.appendChild(li);
 		});
 
-		// group by No so tied wins on the same dungeon share one row
+		// group by No so tied wins on the same dungeon share one row. Rows
+		// that only carry 歴代最速 data (see below) have no No and are
+		// skipped here, so they don't show up as a stray empty entry.
 		var byNo = {};
 		var order = [];
 		records.forEach(function (r) {
+			if (!r.No) return;
 			if (!(r.No in byNo)) {
 				byNo[r.No] = { no: r.No, dungeon: r['ダンジョン名'], winners: [] };
 				order.push(r.No);
@@ -136,6 +150,28 @@
 		document.getElementById('leaderboardSection').style.display = '';
 		document.getElementById('historySection').style.display = '';
 		document.getElementById('rankingsStatus').style.display = 'none';
+
+		// 歴代最速: recorded in the same sheet as separate columns
+		// (最速チャレンジ名 / 最速優勝者), independent of the No-keyed win
+		// history above — a row here doesn't need a No or 優勝者名 at all.
+		var speedruns = records.filter(function (r) {
+			return r['最速チャレンジ名'] && r['最速優勝者'];
+		});
+		var speedTbody = document.querySelector('#speedrunTable tbody');
+		if (speedTbody) {
+			speedTbody.innerHTML = '';
+			speedruns.forEach(function (r) {
+				var tr = document.createElement('tr');
+				var tdChallenge = document.createElement('td');
+				tdChallenge.textContent = r['最速チャレンジ名'];
+				var tdWinner = document.createElement('td');
+				tdWinner.textContent = r['最速優勝者'];
+				tr.appendChild(tdChallenge);
+				tr.appendChild(tdWinner);
+				speedTbody.appendChild(tr);
+			});
+			document.getElementById('speedrunSection').style.display = speedruns.length ? '' : 'none';
+		}
 	}
 
 	fetch(CSV_URL)
