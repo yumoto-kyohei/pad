@@ -1,50 +1,4 @@
 (function () {
-	// TODO: fill in once the Google Sheet is created and shared as "Anyone with the link: Viewer"
-	var SHEET_ID = '1Kexrx1Xav5MR3PUn27LTgjOWOdalwSpTHpuKxerMoM0';
-	var GID = '0';
-	var CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + GID;
-
-	function parseCSV(text) {
-		var rows = [];
-		var row = [];
-		var field = '';
-		var inQuotes = false;
-		for (var i = 0; i < text.length; i++) {
-			var c = text[i];
-			if (inQuotes) {
-				if (c === '"') {
-					if (text[i + 1] === '"') { field += '"'; i++; }
-					else { inQuotes = false; }
-				} else {
-					field += c;
-				}
-			} else if (c === '"') {
-				inQuotes = true;
-			} else if (c === ',') {
-				row.push(field); field = '';
-			} else if (c === '\n') {
-				row.push(field); rows.push(row); row = []; field = '';
-			} else if (c === '\r') {
-				// skip
-			} else {
-				field += c;
-			}
-		}
-		if (field.length || row.length) { row.push(field); rows.push(row); }
-		return rows;
-	}
-
-	function toRecords(rows) {
-		var header = rows[0];
-		return rows.slice(1)
-			.filter(function (r) { return r.length > 1 || r[0]; })
-			.map(function (r) {
-				var obj = {};
-				header.forEach(function (h, i) { obj[h] = r[i] || ''; });
-				return obj;
-			});
-	}
-
 	function render(records) {
 		// walk chronologically (oldest No first) to compute each person's running
 		// win count and their most recent win, then attach it back onto the record
@@ -103,7 +57,7 @@
 		});
 
 		// group by No so tied wins on the same dungeon share one row. Rows
-		// that only carry 歴代最速 data (see below) have no No and are
+		// that only carry 歴代最速 data (see speedrun.js) have no No and are
 		// skipped here, so they don't show up as a stray empty entry.
 		var byNo = {};
 		var order = [];
@@ -150,38 +104,10 @@
 		document.getElementById('leaderboardSection').style.display = '';
 		document.getElementById('historySection').style.display = '';
 		document.getElementById('rankingsStatus').style.display = 'none';
-
-		// 歴代最速: recorded in the same sheet as separate columns
-		// (最速チャレンジ名 / 最速優勝者), independent of the No-keyed win
-		// history above — a row here doesn't need a No or 優勝者名 at all.
-		var speedruns = records.filter(function (r) {
-			return r['最速チャレンジ名'] && r['最速優勝者'];
-		});
-		var speedTbody = document.querySelector('#speedrunTable tbody');
-		if (speedTbody) {
-			speedTbody.innerHTML = '';
-			speedruns.forEach(function (r) {
-				var tr = document.createElement('tr');
-				var tdChallenge = document.createElement('td');
-				tdChallenge.textContent = r['最速チャレンジ名'];
-				var tdWinner = document.createElement('td');
-				tdWinner.textContent = r['最速優勝者'];
-				tr.appendChild(tdChallenge);
-				tr.appendChild(tdWinner);
-				speedTbody.appendChild(tr);
-			});
-			document.getElementById('speedrunSection').style.display = speedruns.length ? '' : 'none';
-		}
 	}
 
-	fetch(CSV_URL)
-		.then(function (res) {
-			if (!res.ok) throw new Error('HTTP ' + res.status);
-			return res.text();
-		})
-		.then(function (text) { render(toRecords(parseCSV(text))); })
-		.catch(function (err) {
-			document.getElementById('rankingsStatus').textContent =
-				'データの読み込みに失敗しました（' + err.message + '）';
-		});
+	fetchSheetRecords(render, function (err) {
+		document.getElementById('rankingsStatus').textContent =
+			'データの読み込みに失敗しました（' + err.message + '）';
+	});
 })();

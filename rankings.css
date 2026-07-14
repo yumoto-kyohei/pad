@@ -48,26 +48,6 @@
 	color:var(--text-muted);
 	font-size:12px;
 }
-#speedrunSection {
-	margin-bottom:28px;
-}
-#speedrunTable {
-	width:100%;
-	border-collapse:collapse;
-	font-size:13px;
-}
-#speedrunTable th, #speedrunTable td {
-	padding:6px 8px;
-	border-bottom:1px solid var(--panel-border);
-	text-align:left;
-}
-#speedrunTable thead th {
-	border-bottom:2px solid var(--panel-border);
-	color:var(--text-muted);
-}
-#speedrunTable tbody tr:hover {
-	background:#f6f8fd;
-}
 #historyTable {
 	width:100%;
 	border-collapse:collapse;
