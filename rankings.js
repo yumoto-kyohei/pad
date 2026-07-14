@@ -76,8 +76,13 @@
 
 		var lbList = document.getElementById('leaderboardList');
 		lbList.innerHTML = '';
-		leaderboard.forEach(function (item) {
+		leaderboard.forEach(function (item, i) {
+			// same win count = same rank (ties share a number, next rank skips
+			// ahead by how many were tied, e.g. 1st, 2nd, 2nd, 4th)
+			var rank = (i > 0 && leaderboard[i - 1].count === item.count) ? leaderboard[i - 1]._rank : i + 1;
+			item._rank = rank;
 			var li = document.createElement('li');
+			li.value = rank;
 			li.textContent = item.name + '（' + item.count + '回）';
 			var lastSpan = document.createElement('span');
 			lastSpan.className = 'lastWin';
