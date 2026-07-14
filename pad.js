@@ -705,139 +705,88 @@ function movePathPoints(moveSet){
 }
 
 // Total rendered width of a route line, and how much of that width is
-// the dark edge (vs. the white core). Adjacent lanes are spaced exactly
-// one line-width apart, so their dark edges touch/overlap slightly —
-// that seam is what separates lanes, instead of a gap of empty space.
+// the dark edge (vs. the coloured core).
 var ROUTE_LINE_WIDTH = 7;
 var ROUTE_EDGE_WIDTH = 2.25;
 
-// n=0 -> lane 0, n=1 -> +1, n=2 -> -1, n=3 -> +2, n=4 -> -2, ...
-function laneAt(n){
-	if (n === 0) return 0;
-	return Math.ceil(n/2) * ((n % 2 === 1) ? 1 : -1);
+// Route progress t (0=start, 1=end) mapped to a line colour. A cool-to-warm
+// ramp, so overlapping passes stay readable even though the line always
+// runs through the tile centres: whichever pass is on top (painted last,
+// per drawRoutePath's painter's algorithm) reads as the warmer colour,
+// so "warm on top of cool" = "this pass happened later".
+// (An earlier version instead offset overlapping passes sideways into
+// separate lanes; that made corners and repeated sections kink instead
+// of curving smoothly, so it was replaced with this colour ramp.)
+function routeColorAt(t){
+	var h = 210 * (1 - t);      // 210°(blue) -> 0°(red)
+	var l = 65 - 10 * t;        // slightly darker toward the end
+	return 'hsl(' + h + ', 85%, ' + l + '%)';
 }
 
-// One offset per segment, computed so the route only shifts lanes when
-// it actually has to. Each edge (cell-to-cell connection) remembers
-// which lanes have already been drawn on it; the route keeps riding its
-// current lane across fresh edges (lines don't need to pass through the
-// drop's exact centre) and only hops to a new, unused lane for that
-// edge when it would otherwise redraw directly on top of an earlier
-// pass. This avoids the old behaviour of snapping back to the centre
-// lane the moment a repeated section ends, which read as an unnatural
-// diagonal kink. The perpendicular is taken relative to the edge's
-// canonical (low-index-to-high-index) direction, so traversals in
-// either direction share the same lane geometry.
-function computeSegmentOffsets(moveSet){
-	var laneGap = ROUTE_LINE_WIDTH;
-	var edgeLanesUsed = {};
-	var segOffsets = [];
-	var currentLane = 0;
-	for (var i = 1; i < moveSet.length; i++){
-		var lo = Math.min(moveSet[i-1], moveSet[i]);
-		var hi = Math.max(moveSet[i-1], moveSet[i]);
-		var key = lo + '_' + hi;
-		var used = edgeLanesUsed[key] || (edgeLanesUsed[key] = {});
-		if (used[currentLane]){
-			for (var n = 0; ; n++){
-				var candidate = laneAt(n);
-				if (!used[candidate]){ currentLane = candidate; break; }
-			}
-		}
-		used[currentLane] = true;
-		var dx = (hi % rows) - (lo % rows);
-		var dy = Math.floor(hi / rows) - Math.floor(lo / rows);
-		segOffsets.push({ x: -dy * currentLane * laneGap, y: dx * currentLane * laneGap });
+// For each interior waypoint, the rounded-corner entry/exit points: where
+// the line trims off toward the previous point (a) and toward the next
+// point (b), by up to cornerRadius. Two adjacent segments that share a
+// corner both reference this same trim, so they meet exactly with no gap
+// or overlap between their strokes.
+function computeCornerTrims(points){
+	var cornerRadius = scale * 0.3;
+	var trims = new Array(points.length);
+	for (var i = 1; i < points.length - 1; i++){
+		var prev = points[i-1], cur = points[i], next = points[i+1];
+		var r1 = Math.min(cornerRadius, pointDistance(prev, cur)/2);
+		var r2 = Math.min(cornerRadius, pointDistance(cur, next)/2);
+		trims[i] = { a: pointTowards(cur, prev, r1), b: pointTowards(cur, next, r2) };
 	}
-	return segOffsets;
+	return trims;
 }
 
-// Builds one continuous point sequence for the whole route. At each
-// waypoint where the lane changes (a different pass than the segment
-// before it):
-//  - If the incoming and outgoing segments are collinear (a straight
-//    continuation), two close points are inserted (one per lane) so
-//    drawSmoothPath's rounding turns the small sideways hop into a
-//    short connecting stitch — this is what keeps a repeated section
-//    flowing into a fresh one without a visible break.
-//  - If they're not collinear (an actual turn), inserting two separate
-//    points there would fight the corner's own rounding — a small
-//    sideways stitch competing with a large direction-change curve
-//    reads as a harsh kink, as if the outgoing line snapped back to
-//    the drop's centre. So turns instead get a single point at the
-//    blended offset, letting the corner curve normally.
-function buildOffsetPolyline(moveSet, revealCount){
-	if (revealCount === undefined) revealCount = moveSet.length;
-	var pts = movePathPoints(moveSet);
-	var segOffsets = computeSegmentOffsets(moveSet);
-	var out = [];
-	out.push({ x: pts[0].x + segOffsets[0].x, y: pts[0].y + segOffsets[0].y });
-	for (var i = 1; i < revealCount - 1; i++){
-		var inOff = segOffsets[i-1], outOff = segOffsets[i];
-		if (inOff.x === outOff.x && inOff.y === outOff.y){
-			out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
-			continue;
-		}
-		var inDir = { x: pts[i].x - pts[i-1].x, y: pts[i].y - pts[i-1].y };
-		var outDir = { x: pts[i+1].x - pts[i].x, y: pts[i+1].y - pts[i].y };
-		var cross = inDir.x*outDir.y - inDir.y*outDir.x;
-		if (Math.abs(cross) > 0.5){
-			out.push({ x: pts[i].x + (inOff.x+outOff.x)/2, y: pts[i].y + (inOff.y+outOff.y)/2 });
-		}
-		else {
-			out.push({ x: pts[i].x + inOff.x, y: pts[i].y + inOff.y });
-			out.push({ x: pts[i].x + outOff.x, y: pts[i].y + outOff.y });
-		}
-	}
-	var lastIdx = revealCount - 1;
-	var lastOff = segOffsets[lastIdx - 1];
-	out.push({ x: pts[lastIdx].x + lastOff.x, y: pts[lastIdx].y + lastOff.y });
-	return out;
-}
-
-// The whole route (every waypoint, every lane) is known up front — this
-// isn't drawn as a live animation, it's the finished path from a solved
-// puzzle or a solver result. So "which pass is on top" is decided by a
-// simple painter's algorithm: walk the points in the order the route
-// was actually travelled, painting each segment (plus a little context
-// from its neighbours, so corners keep rounding correctly) as we go.
-// Consecutive windows overlap enough that a same-lane run still reads
-// as one unbroken line, and because later moves are painted after
-// earlier ones, wherever the route crosses or re-touches itself the
-// more recent pass naturally ends up on top — no separate crossing
-// detection or erasing needed.
+// The whole route is known up front — this isn't drawn as a live
+// animation, it's the finished path from a solved puzzle or a solver
+// result. So "which pass is on top" is decided by a simple painter's
+// algorithm: walk the points in the order the route was actually
+// travelled, stroking one segment at a time. Each segment's stroke
+// covers exactly its own pixels (straight run in, then — if it ends at
+// an interior waypoint — the rounded corner through it, handing off the
+// exact corner-exit point to the next segment) with no overlap between
+// segments, so a later segment's stroke never repaints an earlier one.
+// That matters because each segment also carries its own colour
+// (routeColorAt): without the no-overlap guarantee, a later segment
+// would occasionally paint over an earlier one with the wrong colour,
+// which showed up as visible flicker while Replay reveals the route bit
+// by bit. Painting later segments after earlier ones still means that
+// wherever the route crosses or re-touches itself, the more recent pass
+// naturally ends up on top — no separate crossing detection needed —
+// and since later segments are also warmer-coloured, overlaps stay
+// legible without any lane-offsetting.
 function drawRoutePath(ctx, moveSet, revealCount){
 	if (revealCount === undefined) revealCount = moveSet.length;
 	if (revealCount < 2) return;
-	var points = buildOffsetPolyline(moveSet, revealCount);
+	var points = movePathPoints(moveSet).slice(0, revealCount);
+	var trims = computeCornerTrims(points);
+	var totalSegs = moveSet.length - 1;
+	var start = points[0];
 	for (var i = 0; i < points.length - 1; i++){
-		var windowStart = Math.max(0, i - 1);
-		var windowEnd = Math.min(points.length - 1, i + 2);
-		drawSmoothPath(ctx, points.slice(windowStart, windowEnd + 1));
+		var t = totalSegs <= 1 ? 0 : i / (totalSegs - 1);
+		var next = points[i+1];
+		var hasCorner = (i + 1 <= points.length - 2);
+		var cornerEntry = hasCorner ? trims[i+1].a : next;
+		var cornerExit = hasCorner ? trims[i+1].b : null;
+		drawSmoothSegment(ctx, start, next, cornerEntry, cornerExit, routeColorAt(t));
+		start = cornerExit || cornerEntry;
 	}
 	drawRouteDot(ctx, points[0].x, points[0].y, 10, '#2ecc40', 's', '#ffe600');
 	drawRouteDot(ctx, points[points.length-1].x, points[points.length-1].y, 10, '#e64545', 'g', '#ffe600');
 }
 
-// Draws one continuous path through the given points: straight runs stay
-// straight (no visible joint between collinear segments), and direction
-// changes are rounded into a smooth curve instead of a sharp corner.
-function drawSmoothPath(ctx, points){
-	if (points.length < 2) return;
-	var cornerRadius = scale * 0.3;
+// Draws one segment: a straight run from `start` to `cornerEntry` (the
+// true next waypoint if it has no corner), then — if `cornerExit` is
+// given — a rounded curve through `waypoint` out to it.
+function drawSmoothSegment(ctx, start, waypoint, cornerEntry, cornerExit, coreColor){
 	function tracePath(){
 		ctx.beginPath();
-		ctx.moveTo(points[0].x, points[0].y);
-		for (var i=1; i<points.length-1; i++){
-			var prev = points[i-1], cur = points[i], next = points[i+1];
-			var r1 = Math.min(cornerRadius, pointDistance(prev, cur)/2);
-			var r2 = Math.min(cornerRadius, pointDistance(cur, next)/2);
-			var a = pointTowards(cur, prev, r1);
-			var b = pointTowards(cur, next, r2);
-			ctx.lineTo(a.x, a.y);
-			ctx.quadraticCurveTo(cur.x, cur.y, b.x, b.y);
-		}
-		ctx.lineTo(points[points.length-1].x, points[points.length-1].y);
+		ctx.moveTo(start.x, start.y);
+		ctx.lineTo(cornerEntry.x, cornerEntry.y);
+		if (cornerExit) ctx.quadraticCurveTo(waypoint.x, waypoint.y, cornerExit.x, cornerExit.y);
 	}
 	ctx.lineCap = 'round';
 	ctx.lineJoin = 'round';
@@ -847,7 +796,7 @@ function drawSmoothPath(ctx, points){
 	ctx.stroke();
 	tracePath();
 	ctx.lineWidth = ROUTE_LINE_WIDTH - ROUTE_EDGE_WIDTH*2;
-	ctx.strokeStyle = '#fff';
+	ctx.strokeStyle = coreColor || '#fff';
 	ctx.stroke();
 }
 
