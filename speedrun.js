@@ -4,9 +4,10 @@
 		// 最速優勝者) of the same sheet as 歴代王者's win history, so most
 		// records here won't have those columns filled — keep only the ones
 		// that do. There's no No/date column for these, so the sheet's row
-		// order stands in for chronology — and per how the sheet is kept,
-		// that order is newest-first (index 0 = most recent), matching the
-		// ダンジョン名/優勝者名 columns' own No 降順 convention.
+		// order stands in for chronology — oldest at the top, newest at the
+		// bottom (confirmed against the actual data: 新千手チャレンジ, the
+		// topmost row, is the oldest; 大樹チャレンジ, the bottommost, is the
+		// newest), i.e. new entries get appended below the existing ones.
 		var speedruns = records.filter(function (r) {
 			return r['最速チャレンジ名'] && r['最速優勝者'];
 		});
@@ -16,9 +17,10 @@
 		speedruns.forEach(function (r, i) {
 			var person = r['最速優勝者'];
 			tally[person] = (tally[person] || 0) + 1;
-			// scanning newest-to-oldest, so the first time we see this person
-			// is their most recent occurrence — keep that, not later (older) ones
-			if (!(person in mostRecentIndex)) mostRecentIndex[person] = i;
+			// scanning oldest-to-newest, so the last time we see this person
+			// (largest i, simply overwriting on each occurrence) is their most
+			// recent occurrence
+			mostRecentIndex[person] = i;
 		});
 
 		var leaderboard = Object.keys(tally)
@@ -26,9 +28,8 @@
 			.sort(function (a, b) {
 				if (b.count !== a.count) return b.count - a.count;
 				// tie: whoever reached this count first — i.e. their most recent
-				// occurrence happened earlier in time, which in this newest-first
-				// order means the larger index — ranks above
-				return b.mostRecentIndex - a.mostRecentIndex;
+				// occurrence happened earlier in time (smaller index) — ranks above
+				return a.mostRecentIndex - b.mostRecentIndex;
 			});
 
 		var RANK_MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -45,14 +46,14 @@
 			lbList.appendChild(li);
 		});
 
-		// The sheet is written newest-first (top row = most recent), same as
-		// the ダンジョン名/優勝者名 columns' No — so the row order here is
-		// left exactly as typed; only the No numbering is flipped to count
-		// down from the top, matching 歴代王者's history table (No 降順).
+		// The sheet is written oldest-first (top row = oldest, new entries
+		// appended below), so No is assigned in that order (oldest = 1) but
+		// the table itself lists newest first — same convention as 歴代王者's
+		// history table (No 降順).
 		var tbody = document.querySelector('#historyTable tbody');
 		tbody.innerHTML = '';
-		speedruns.forEach(function (r, i) {
-			var no = speedruns.length - i;
+		speedruns.slice().reverse().forEach(function (r, revIndex) {
+			var no = speedruns.length - revIndex;
 			var tr = document.createElement('tr');
 			var tdNo = document.createElement('td');
 			tdNo.textContent = no;
