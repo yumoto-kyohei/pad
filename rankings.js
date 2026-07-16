@@ -71,8 +71,8 @@
 				var label = r['優勝者名'] + (r['身元不明'] === 'TRUE' ? '？' : '');
 				if (r._champNumber) {
 					label += r._runningCount > 1
-						? '（' + r._runningCount + '・' + r._champNumber + '人目の王者）'
-						: '（' + r._champNumber + '人目の王者）';
+						? '（' + r._runningCount + '・' + r._champNumber + '人目）'
+						: '（' + r._champNumber + '人目）';
 				} else {
 					label += '（' + r._runningCount + '）';
 				}
