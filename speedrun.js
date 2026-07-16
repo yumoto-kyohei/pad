@@ -74,9 +74,9 @@
 			var label = r['最速優勝者'];
 			label += r._champNumber
 				? (r._runningCount > 1
-					? '（' + r._runningCount + '・' + r._champNumber + '人目）'
+					? '（' + r._runningCount + '回目・' + r._champNumber + '人目）'
 					: '（' + r._champNumber + '人目）')
-				: '（' + r._runningCount + '）';
+				: '（' + r._runningCount + '回目）';
 			tdWinner.textContent = label;
 			tr.appendChild(tdNo);
 			tr.appendChild(tdChallenge);

@@ -68,13 +68,17 @@
 				order.push(r.No);
 			}
 			if (r['優勝者名']) {
-				var label = r['優勝者名'] + (r['身元不明'] === 'TRUE' ? '？' : '');
+				// 身元不明 (uncertain identity) puts a ？ on the "n人目" champion
+				// designation itself (e.g. 5人目？) rather than after the name.
+				var unknown = r['身元不明'] === 'TRUE';
+				var label = r['優勝者名'];
 				if (r._champNumber) {
+					var champPart = r._champNumber + '人目' + (unknown ? '？' : '');
 					label += r._runningCount > 1
-						? '（' + r._runningCount + '・' + r._champNumber + '人目）'
-						: '（' + r._champNumber + '人目）';
+						? '（' + r._runningCount + '回目・' + champPart + '）'
+						: '（' + champPart + '）';
 				} else {
-					label += '（' + r._runningCount + '）';
+					label += '（' + r._runningCount + '回目' + (unknown ? '？' : '') + '）';
 				}
 				byNo[r.No].winners.push(label);
 			}
