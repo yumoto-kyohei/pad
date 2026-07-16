@@ -12,15 +12,26 @@
 			return r['最速チャレンジ名'] && r['最速優勝者'];
 		});
 
+		// walk oldest-to-newest to compute each person's running count of
+		// 最速 titles and, the first time a name appears, their champion
+		// number — mirrors 歴代王者's ascending pass for 優勝者名.
 		var tally = {};
 		var mostRecentIndex = {};
+		var seenNames = {};
+		var champCounter = 0;
 		speedruns.forEach(function (r, i) {
 			var person = r['最速優勝者'];
 			tally[person] = (tally[person] || 0) + 1;
+			r._runningCount = tally[person];
 			// scanning oldest-to-newest, so the last time we see this person
 			// (largest i, simply overwriting on each occurrence) is their most
 			// recent occurrence
 			mostRecentIndex[person] = i;
+			if (!seenNames[person]) {
+				seenNames[person] = true;
+				champCounter++;
+				r._champNumber = champCounter;
+			}
 		});
 
 		var leaderboard = Object.keys(tally)
@@ -60,7 +71,13 @@
 			var tdChallenge = document.createElement('td');
 			tdChallenge.textContent = r['最速チャレンジ名'];
 			var tdWinner = document.createElement('td');
-			tdWinner.textContent = r['最速優勝者'];
+			var label = r['最速優勝者'];
+			label += r._champNumber
+				? (r._runningCount > 1
+					? '（' + r._runningCount + '・' + r._champNumber + '人目の最速称号取得者）'
+					: '（' + r._champNumber + '人目の最速称号取得者）')
+				: '（' + r._runningCount + '）';
+			tdWinner.textContent = label;
 			tr.appendChild(tdNo);
 			tr.appendChild(tdChallenge);
 			tr.appendChild(tdWinner);
