@@ -13,15 +13,14 @@
 	<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
-	<link rel="stylesheet" type="text/css" href="pad.css?v7">
+	<link rel="stylesheet" type="text/css" href="pad.css?v8">
 	<link rel="stylesheet" type="text/css" href="menu.css?v3">
 	<link rel="shortcut icon" href="favicon.ico" />
-	<script src="pad.js?v6"></script>
+	<script src="pad.js?v7"></script>
 </head>
 <body><div id="wrapwrap">
 	<div id="lineback">
 		<button id="hamburgerBtn" aria-label="メニュー"><span></span><span></span><span></span></button>
-		<button onclick="requestAction('help')" class="topbutton image3">?</button>
 		<button onclick="requestAction('options')" class="topbutton image6">Options</button>
 		<div style="float:right;line-height:25px">
 			<span id="modeToggle">
@@ -115,8 +114,8 @@
 	</div>
 	<div id="library">
 		<div id="libraryHeader">
-			<div style="float:left;line-height:30px;font-weight:bold">My Boards</div>
-			<button onclick="requestAction('savepattern')" style="float:right">Save Current Board</button>
+			<div style="float:left;line-height:30px;font-weight:bold">保存した盤面</div>
+			<button onclick="requestAction('savepattern')" style="float:right">現在の盤面を保存</button>
 		</div>
 		<div id="libraryList"></div>
 	</div>

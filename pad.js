@@ -395,18 +395,23 @@ function darkenOrbs (matchedOrbs){
 
 function changeTheWorld(){
 	changeTheWorldOn = 1;
-	if (freeToPlay != 1){
-		start();
-		ctwTimeOut.push(setTimeout(function(){
-			if (changeTheWorldOn == 1){
-				replayMoveSet=[];
-				$(document).trigger("mouseup");
-				swapHasHappened = 1;
-				changeTheWorldOn = 0;
-				requestAction('solve', 1);
-			}
-		},10000));
-	}
+	// The 10-second window (and its on-screen timer) starts on the first
+	// actual move, not the instant CtW is turned on — see bindTileDragDrop's
+	// droppable "over" handler, which calls startChangeTheWorldTimer() then.
+}
+
+function startChangeTheWorldTimer(){
+	if (freeToPlay == 1) return;
+	start();
+	ctwTimeOut.push(setTimeout(function(){
+		if (changeTheWorldOn == 1){
+			replayMoveSet=[];
+			$(document).trigger("mouseup");
+			swapHasHappened = 1;
+			changeTheWorldOn = 0;
+			requestAction('solve', 1);
+		}
+	},10000));
 }
 
 function checkField(){
@@ -427,14 +432,32 @@ var totalFallSpeed = 300;
 // How many gravity passes the farthest-falling tile needs: for each
 // column, the number of black (cleared) cells below a tile is exactly
 // how many rows that tile has left to fall.
+//
+// With 落ちコン (skyfall) on, this undercounts: skyfall keeps refilling the
+// top of a column with a brand new orb on every pass the top cell is
+// black, and that new orb then needs its own passes to reach the bottom —
+// including in a column with no surviving tile at all, which the
+// tile-based count above misses entirely (0 blacks "below" a tile that
+// doesn't exist). With skyfall, every black cell in the column will
+// eventually be filled one way or another, so the pass count a column
+// needs is simply its total black-cell count instead.
 function calculateMaxFallPasses(){
 	var maxPasses = 0;
 	for (var f = 0; f < rows; f++){
-		var blackBelow = 0;
-		for (var y = cols-1; y >= 0; y--){
-			var color = divs[y*rows+f].getAttribute('tileColor');
-			if (color == 'black') blackBelow++;
-			else if (blackBelow > maxPasses) maxPasses = blackBelow;
+		if (skyFall == 1){
+			var blackCount = 0;
+			for (var y = 0; y < cols; y++){
+				if (divs[y*rows+f].getAttribute('tileColor') == 'black') blackCount++;
+			}
+			if (blackCount > maxPasses) maxPasses = blackCount;
+		}
+		else {
+			var blackBelow = 0;
+			for (var y = cols-1; y >= 0; y--){
+				var color = divs[y*rows+f].getAttribute('tileColor');
+				if (color == 'black') blackBelow++;
+				else if (blackBelow > maxPasses) maxPasses = blackBelow;
+			}
 		}
 	}
 	return maxPasses;
@@ -1416,10 +1439,13 @@ function bindTileDragDrop(){
 			draggable.swap(droppable, 2);
 			animateSwapSlide(droppable[0], displacedRect.left, displacedRect.top);
 			swapHasHappened = 1;
-			// The timer (制限/計測) starts on the first actual swap, not
-			// when the drop is first picked up.
-			if (firstSwap && changeTheWorldOn == 0) {
-				if (timerOn == 1) {
+			// The timer (制限/計測/CtW) starts on the first actual swap,
+			// not when the drop is first picked up.
+			if (firstSwap) {
+				if (changeTheWorldOn == 1) {
+					startChangeTheWorldTimer();
+				}
+				else if (timerOn == 1) {
 					timeOut.push(setTimeout(function(){ $(document).trigger("mouseup"); },timerTime));
 					start();
 				}
@@ -1480,19 +1506,19 @@ function savePatternToLibrary(){
 	var pattern = '';
 	for (var i=0;i<rows*cols;i++){
 		if (toLetter(divs[i].getAttribute('tileColor')) == 0) {
-			displayOutput('Cannot save: invalid board<br />', 0);
+			displayOutput('保存できません: 無効な盤面です<br />', 0);
 			return;
 		}
 		pattern += toLetter(divs[i].getAttribute('tileColor')).toUpperCase();
 	}
 	var list = loadLibrary();
-	var name = prompt('Board name:', 'Board ' + (list.length + 1));
+	var name = prompt('盤面の名前:', '盤面' + (list.length + 1));
 	if (name === null) return;
-	if (name.trim() == '') name = 'Untitled';
+	if (name.trim() == '') name = '名称未設定';
 	list.push({ name: name, pattern: pattern, rows: rows, cols: cols, replay: replayMoveSet.slice(), saved: Date.now() });
 	saveLibrary(list);
 	renderLibrary();
-	displayOutput('Saved "' + escapeHtml(name) + '" to My Boards<br />', 0);
+	displayOutput('"' + escapeHtml(name) + '" を保存した盤面に追加しました<br />', 0);
 }
 
 function renderLibrary(){
@@ -1510,8 +1536,8 @@ function renderLibrary(){
 		html += '<div class="libraryItem"><div><span class="libName">' + escapeHtml(item.name) + '</span>'
 			+ '<span class="libMeta">' + item.cols + 'x' + item.rows + ' / ' + d.toLocaleString() + '</span></div>'
 			+ '<div class="libActions">'
-			+ '<button onclick="requestAction(\'loadsaved\', ' + i + ')">Load</button>'
-			+ '<button onclick="requestAction(\'deletesaved\', ' + i + ')">Delete</button>'
+			+ '<button onclick="requestAction(\'loadsaved\', ' + i + ')">読込</button>'
+			+ '<button onclick="requestAction(\'deletesaved\', ' + i + ')">削除</button>'
 			+ '</div></div>';
 	}
 	container.innerHTML = html;
@@ -1528,13 +1554,13 @@ function loadSavedPattern(index){
 	document.getElementById('entry').value = item.pattern;
 	replayMoveSet = item.replay ? item.replay.slice() : [];
 	requestAction('applypattern', 2);
-	displayOutput('Loaded "' + escapeHtml(item.name) + '"<br />', 0);
+	displayOutput('"' + escapeHtml(item.name) + '" を読み込みました<br />', 0);
 }
 
 function deleteSavedPattern(index){
 	var list = loadLibrary();
 	if (!list[index]) return;
-	if (!confirm('Delete "' + list[index].name + '"?')) return;
+	if (!confirm('"' + list[index].name + '" を削除しますか?')) return;
 	list.splice(index, 1);
 	saveLibrary(list);
 	renderLibrary();
@@ -1555,7 +1581,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
 		$("#showDrops").hide();
 	}
 	if (action == 'randomize') {
-		if (colors.length < 2) displayOutput('Select a minimum of 2 colors in the options to randomize the board<br />', 0);
+		if (colors.length < 2) displayOutput('ランダム生成するには、オプションで最低2色選択してください<br />', 0);
 		else {
 			if (shuffleInstead){
 				shuffleBoard();
@@ -1570,15 +1596,15 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'loadboard') loadBoardState(savedBoardState);
 	if (action == 'timemode') {
 		if (changeTheWorldOn == 0) toggle('timemode', modifier);
-		else displayOutput('Not during Change the World<br />', 0);
+		else displayOutput('CtW中は使用できません<br />', 0);
 		}
 	if (action == 'skyfall') toggle('skyfall');
 	if (action == 'changetheworld') {
 		if (!toggle('draggable', 2)) {
 			changeTheWorld();
-			displayOutput('I want to change the world... <br />', 0);
+			displayOutput('世界を変えてやる…<br />', 0);
 		}
-		else displayOutput('Reset the board first<br />', 0);
+		else displayOutput('先に盤面をリセットしてください<br />', 0);
 	}
 	if (action == 'applypattern') {
 		if (applyPattern()) {
@@ -1586,7 +1612,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
 			saveBoardState();
 			requestAction('copypattern' , 0);
 		}
-		else displayOutput('Failed to Apply<br />', 0);
+		else displayOutput('適用に失敗しました<br />', 0);
 	}
 	if (action == 'copypattern') {
 		loadBoardState(savedBoardState);
@@ -1637,16 +1663,6 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'savepattern') savePatternToLibrary();
 	if (action == 'loadsaved') loadSavedPattern(modifier);
 	if (action == 'deletesaved') deleteSavedPattern(modifier);
-	if (action == 'help') {
-		var showHelp =
-			['Play/Edit at the top switches modes. Gear icon leads to <a href="javascript:requestAction(\'options\')">options</a>',
-			'<br /><br />In Edit mode, tap (or slide across) the palette above the board to paint tiles',
-			'<br /><br />In Play mode, the panel above the board picks 制限 (countdown, +/- adjusts the length) or 計測 (stopwatch) timing. The ルート表示 button toggles whether the swap path is drawn after a move and during Replay',
-			'<br /><br />CtW (change the world) allows you to move and drop orbs freely for 10 seconds (no replay)',
-			'<br /><br />Use "Save Current Board" below the board to keep boards in My Boards (saved in this browser only)'
-			].join('');
-		displayOutput(showHelp, 0);
-	}
 	if (action == 'options') {
 		var showHelp =
 			['オプション:<br /><div class="test1"><div style="float:left;vertical-align:bottom;line-height:30px">使用するドロップ色: </div>',
@@ -1842,7 +1858,6 @@ $(function(){		// CURSOR AT AND MOVING ORB SIZE
 	if ($_GET['timer']) timerTime=$_GET['timer']*1000;
 	if ($_GET['drops']) toDrop = 2;
 	if ($_GET['speed'] && $.isNumeric($_GET['speed'])) dropSpeed = $_GET['speed'];
-	requestAction('help');
 
 	$(function(){
 		document.getElementById('time').innerHTML = formatTime(x.time());

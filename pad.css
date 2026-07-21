@@ -188,9 +188,6 @@ body {
 .image2 {
 	background:url("img/clock.svg")
 }
-.image3 {
-	background:url("img/question.svg")
-}
 .image4 {
 	background:url("img/minus.png")
 }
@@ -198,7 +195,10 @@ body {
 	background:url("img/plus.png")
 }
 .image6 {
-	background:url("img/gear.png")
+	background:url("img/gear.png");
+	/* gear.png is solid black on transparent; invert so it reads on the
+	   dark theme's panel background instead of disappearing into it */
+	filter: invert(1);
 }
 .image7 {
 	background:url("img/Green.png")
