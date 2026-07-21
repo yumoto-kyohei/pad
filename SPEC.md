@@ -20,9 +20,20 @@
 | `rankings.css` | 歴代王者・歴代最速の共通スタイル(両ページとも同じ id 構成で読み込む) |
 | `sheetData.js` | 歴代王者・歴代最速で共通のスプレッドシート取得+CSVパース処理(`fetchSheetRecords`) |
 | `menu.js` / `menu.css` | ハンバーガーメニュー(3ページ間の遷移) |
-| `img/` | ドロップ画像(Red.png 等 8色+Fire.png 等の旧名エイリアス) |
+| `img/` | ドロップ画像(Red.png 等 8色+Fire.png 等の旧名エイリアス)+PWA用アイコン(下記) |
+| `manifest.json` | PWAマニフェスト(3ページ共通で読み込む) |
+| `sw.js` | PWA用 Service Worker。アプリシェルをキャッシュしオフライン動作させる |
+| `pwa.js` | Service Worker登録スクリプト(3ページ共通) |
 
 CSS/JSの読み込みには `?v5` のような手動キャッシュバスターを付けている。**CSSやJSを変更したら、それを読み込んでいる全ページのHTML側のクエリを上げること。**
+
+### 1.1 PWA(ホーム画面追加・オフライン対応)
+
+- 3ページすべての `<head>` に `<link rel="manifest" href="manifest.json">`、`theme-color`、iOS用の `apple-mobile-web-app-*` meta、`apple-touch-icon` を記載。`</body>` 直前で `pwa.js` を読み込み、`navigator.serviceWorker.register('sw.js')` を実行する。
+- アイコンは `img/icon-192.png` / `img/icon-512.png` / `img/icon-maskable-512.png`(Android maskable用、セーフゾーンを空けた図案)/ `img/apple-touch-icon.png`(180×180、iOS用、不透明背景必須)の4種。現在は**仮アイコン**(ダークテーマの配色に合わせた紺グラデーション地に赤/青/緑のドロップ風の丸を3つ配置しただけの簡素なもの)。差し替える場合はこの4サイズ分を作り直すこと。生成に使った手順は `img/` 内に残していないので、次に作り直す際は同じ配色(`--panel-bg` 系のグラデーション)で作るとテーマに馴染む。
+- `sw.js` はネットワークを介さず動く**パズル練習ページ(index.html)を完全オフライン対応**させることが主目的。`APP_SHELL` 配列にある全ファイル(HTML/CSS/JS/画像、ドロップ画像込み)をインストール時に個別キャッシュ(`cache.add` を1件ずつ、`addAll` ではない→1件失敗しても他は失敗しない)。fetchイベントではキャッシュ優先+バックグラウンド更新、ただし **`docs.google.com` へのリクエストは絶対にインターセプトしない**(歴代王者・最速チャレンジの生データを古いまま出さないため)。
+- **重要**: `pad.css`/`pad.js` 等の `?vN` を上げたら、`sw.js` の `APP_SHELL` 配列内の該当エントリも同じバージョンに書き換え、かつ `CACHE_NAME` の末尾番号(`puzzle-practice-v1` など)をインクリメントすること。`CACHE_NAME` を上げないと、インストール済みのユーザーの端末で古いキャッシュが使われ続け、`activate` 時の古キャッシュ削除処理も走らない。
+- ローカル確認方法: `cache.add` は個別に失敗を握りつぶすので、`caches.open('puzzle-practice-v1').then(c=>c.keys())` で実際に何件キャッシュされたかをブラウザのコンソールで確認できる(全35ファイルキャッシュされていることを確認済み)。
 
 **全体はダークテーマ**(黒〜濃紺の背景+青/紫のアクセント)。配色は `pad.css` 冒頭の `:root` に集約している:
 - `--accent`(青 #5b86ff)/`--accent2`(紫 #9a5cff)/`--accent-gradient`(この2色のグラデーション。アクティブなボタン・ナビ・見出し下線・ホバー塗り等に使用)
