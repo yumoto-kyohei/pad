@@ -1,7 +1,7 @@
 // Shared Google Sheet CSV fetch/parse, used by both rankings.js (歴代王者)
 // and speedrun.js (歴代最速) — both read different columns of the same
 // sheet, so the sheet ID and CSV parsing live here once.
-var SHEET_ID = '1Kexrx1Xav5MR3PUn27LTgjOWOdalwSpTHpuKxerMoM0';
+var SHEET_ID = '10D6ye3r_v3EOfZ4EhKg8l2LCSfe4RCN6vkhv7FS1wvY';
 var SHEET_GID = '0';
 
 function parseSheetCSV(text) {
