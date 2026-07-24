@@ -1664,8 +1664,13 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'loadsaved') loadSavedPattern(modifier);
 	if (action == 'deletesaved') deleteSavedPattern(modifier);
 	if (action == 'options') {
+		// On mobile the board can't share the screen with the options panel
+		// (see pad.css .options-open), so opening options hides the board;
+		// the ✕ button restores it.
+		document.getElementById('wrapwrap').classList.add('options-open');
 		var showHelp =
-			['オプション:<br /><div class="test1"><div style="float:left;vertical-align:bottom;line-height:30px">使用するドロップ色: </div>',
+			['<button onclick="requestAction(\'closeoptions\')" id="optionsClose" class="modebutton" style="float:right">✕ 閉じる</button>',
+			'オプション:<br /><div class="test1"><div style="float:left;vertical-align:bottom;line-height:30px">使用するドロップ色: </div>',
 			'<button onclick="requestAction(\'boardcolor\', \'Green\')" id="bcGreen" class="topbutton image7">オプション</button>',
 			'<button onclick="requestAction(\'boardcolor\', \'Red\')" id="bcRed" class="topbutton image8">オプション</button>',
 			'<button onclick="requestAction(\'boardcolor\', \'Blue\')" id="bcBlue" class="topbutton image9">オプション</button>',
@@ -1677,7 +1682,7 @@ function requestAction(action, modifier){ // CLEAN IT UP
             '<br />コンボ結果をアイコンで表示: <a onclick="requestAction(\'showComboItems\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'showComboItems\', \'0\');" href="#">オフ</a>',
             '<br />ランダムの代わりにシャッフルを使う: <a onclick="requestAction(\'shuffleInstead\', \'1\');" href="#">オン</a> / <a onclick="requestAction(\'shuffleInstead\', \'0\');" href="#">オフ</a>',
             '<br />最低何個そろったら消えるか: <a onclick="requestAction(\'minimumCombo\', \'2\');" href="#">3</a> / <a onclick="requestAction(\'minimumCombo\', \'3\');" href="#">4</a> / <a onclick="requestAction(\'minimumCombo\', \'4\');" href="#">5</a>',
-            '<br /><br />※ドロップ色の設定は、スカイフォールやランダム生成で使われる色に影響します'
+            '<br /><br />※ドロップ色の設定は、落ちコンやランダム生成で使われる色に影響します'
 			].join('');
 		displayOutput(showHelp, 0);
 		for (index1 = 0; index1 < 2; ++index1){
@@ -1688,6 +1693,11 @@ function requestAction(action, modifier){ // CLEAN IT UP
 			toggle('boardcolor', 'Dark');
 			toggle('boardcolor', 'Heart');
 		}
+	}
+	if (action == 'closeoptions') {
+		document.getElementById('wrapwrap').classList.remove('options-open');
+		document.getElementById('infobooth').innerHTML = '';
+		applyResponsiveLayout(true); // board was display:none while options were open
 	}
 	if (action == 'boardcolor') toggle('boardcolor', modifier);
 	if (action == 'replay') playReplay(toDrop);
@@ -1700,7 +1710,11 @@ function requestAction(action, modifier){ // CLEAN IT UP
 	if (action == 'randomizeMatchedOrbs') toggle('randomizeMatchedOrbs', modifier);
 	if (action == 'shuffleInstead') toggle('shuffleInstead', modifier);
 	if (action == 'minimumCombo') toggle('minimumCombo', modifier);
-	if (action == 'setmode') toggle('mode', modifier);
+	if (action == 'setmode') {
+		// switching mode also dismisses the options panel and brings the board back
+		document.getElementById('wrapwrap').classList.remove('options-open');
+		toggle('mode', modifier);
+	}
 	if (action == 'selectpaint') {
 		selectedPaintColor = modifier;
 		updatePaletteSelection();

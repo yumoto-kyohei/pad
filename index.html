@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 	<meta name="description" content="パズドラ盤面練習アプリ" />
 	<title>Puzzle Practice</title>
 	<link rel="manifest" href="manifest.json">
@@ -13,10 +13,10 @@
 	<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 	<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 	<script src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
-	<link rel="stylesheet" type="text/css" href="pad.css?v8">
+	<link rel="stylesheet" type="text/css" href="pad.css?v9">
 	<link rel="stylesheet" type="text/css" href="menu.css?v3">
 	<link rel="shortcut icon" href="favicon.ico" />
-	<script src="pad.js?v7"></script>
+	<script src="pad.js?v8"></script>
 </head>
 <body><div id="wrapwrap">
 	<div id="lineback">
@@ -89,14 +89,14 @@
 			<span class="orbCount"><img src="img/Jammer.png"><span id="orbCount-jammer">0</span></span>
 			<span class="orbCount"><img src="img/Poison.png"><span id="orbCount-poison">0</span></span>
 		</div>
-		<div id="board">
-			<div id="boardBg"></div>
-			<div id="arrowSurfaceC">
-				<canvas id="arrowSurface" width="540px" height="450px"></canvas>
-			</div>
-			<div id="tiles"></div>
-			<button id="showDrops" style="display:none" onclick="requestAction('showdrops')">Show Drops</button>
+	</div>
+	<div id="board">
+		<div id="boardBg"></div>
+		<div id="arrowSurfaceC">
+			<canvas id="arrowSurface" width="540px" height="450px"></canvas>
 		</div>
+		<div id="tiles"></div>
+		<button id="showDrops" style="display:none" onclick="requestAction('showdrops')">Show Drops</button>
 	</div>
 	<div id="buttons">
 		<button id="random" class="editOnly" onclick="requestAction('editrandom')">Random</button>

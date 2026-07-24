@@ -547,24 +547,78 @@ border:1px solid #616261; -webkit-border-radius: 3px; -moz-border-radius: 3px;bo
 }
 
 @media (max-width: 600px) {
+	/* Full-height app layout: the board is pinned to the bottom of the
+	   screen (roughly the bottom third, like the real game) and everything
+	   else stacks above it, so the page itself never scrolls. Only the
+	   saved-boards list scrolls, and only within its own area if it's long.
+	   env(safe-area-inset-*) keeps content clear of the notch/status bar and
+	   the home indicator (needs viewport-fit=cover on the viewport meta). */
+	html, body {
+		height:100%;
+		overflow:hidden;
+	}
 	#wrapwrap {
 		display:flex;
 		flex-direction:column;
+		height:100vh;
+		height:100dvh;
+		box-sizing:border-box;
+		padding-top:env(safe-area-inset-top);
+		padding-bottom:env(safe-area-inset-bottom);
 	}
+	#lineback { flex:none; }
 	#buttons {
 		order:1;
+		flex:none;
 	}
 	#game {
 		order:2;
+		flex:none;
 		margin-top:10px;
 	}
 	#library {
 		order:3;
+		flex:1 1 auto;
+		min-height:0;
+		overflow-y:auto;
+		margin-top:10px;
 	}
 	#infobooth {
 		order:4;
+		flex:none;
+		min-height:0;
+		margin-top:6px;
+		/* transparent + light padding so an empty message area doesn't leave
+		   a stray card above the board; text/results still read on the page bg */
+		background:transparent;
+		box-shadow:none;
+		border-radius:0;
+		padding:0 10px;
+	}
+	#wrapwrap.options-open #infobooth {
+		background:var(--panel-bg);
+		border-radius:10px;
+		padding:16px;
+	}
+	#board {
+		order:5;
+		flex:none;
+		margin-top:10px;
 	}
 	#appTitle {
 		display:none;
+	}
+
+	/* Options display can't fit alongside the board without scrolling, so
+	   while it's open the board (and the saved-boards list) are hidden and
+	   the options panel fills the freed space. Closing it (✕ button, or
+	   switching mode) restores the board. */
+	#wrapwrap.options-open #board,
+	#wrapwrap.options-open #library {
+		display:none;
+	}
+	#wrapwrap.options-open #infobooth {
+		flex:1 1 auto;
+		overflow-y:auto;
 	}
 }

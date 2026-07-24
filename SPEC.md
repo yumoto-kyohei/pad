@@ -89,6 +89,16 @@ localStorage(キー `puzzlePracticeBoards`)に盤面文字列+サイズを保存
 ### 3.5 オプション
 
 Options はダイアログではなく `#infobooth` へのHTML出力。設定項目: 使用ドロップ色、生成時のコンボ成立許可、ルート表示ON/OFF、コンボ結果アイコン表示、シャッフル使用、最低消滅個数(3/4/5)。**設定は永続化されない(リロードで初期値に戻る)。**(旧「?」ヘルプボタンと `action=='help'` は未使用のため削除済み)
+- モバイルでは盤面とオプション表示を同時にスクロールなしで置けないため、Options を開くと `#wrapwrap` に `options-open` クラスが付き、**盤面と保存盤面リストを隠してオプションが画面を占める**。オプション先頭の「✕ 閉じる」(`action=='closeoptions'`)またはモード切替(`setmode`)でクラスが外れ盤面が戻る(`closeoptions` は `applyResponsiveLayout(true)` を呼び直す — 盤面は display:none だった間に再計測が必要なため)。盤面が隠れている間はドラッグ操作ができない=コンボ結果メッセージが `#infobooth` を上書きする事故が起きないので、この方式で競合しない。デスクトップ(幅 > 600px)では `options-open` の隠し規則は効かず、従来通り盤面の下にオプションが出る。
+
+### 3.6 モバイルレイアウト(スクロールなし・盤面下部固定)
+
+`@media (max-width: 600px)` で、実機パズドラのように**盤面を画面下部(おおよそ下 6割〜最下端)に固定し、ページ自体はスクロールさせない**レイアウトにしている。実機同様、盤面はフル幅・アスペクト比 rows/cols(6:5)なので高さは幅の 5/6 ≈ 画面の約 37〜40%。
+
+- `#wrapwrap` を `height:100dvh`(未対応ブラウザ用に `100vh` フォールバック)の flex 縦並びにし、`box-sizing:border-box` + `padding-top/bottom: env(safe-area-inset-*)` でノッチ/ステータスバーとホームインジケーターを避ける(`env()` を効かせるため viewport meta に `viewport-fit=cover` を付与。index.html のみ。rankings/speedrun は付けていない=safe-area padding を入れていないので付けると逆にノッチ下に潜る)。
+- **`#board` は DOM 上 `#game` の外(直後の兄弟)に移動済み**。flex の `order` は兄弟間でしか効かないため、`#game` の子のままだと最下部へ回せない。デスクトップ(非flex)では DOM 順のまま `#game` の直後に描画されるので**従来の見た目と同一**(ヘッダー→パネル→盤面→ボタン→保存盤面)。
+- モバイルの `order`: `#lineback`(0)→`#buttons`(1)→`#game`パネル(2)→`#library`(3, `flex:1` + `overflow-y:auto` で余白を埋め、保存盤面が多ければ**この枠内だけスクロール**)→`#infobooth`(4)→`#board`(5, 最下部)。`#infobooth` はモバイルでは背景透過・パディング小にして空メッセージ時に余計なカードが残らないようにしている(`options-open` 時のみパネル背景を復帰)。
+- 盤面サイズ(`scale`)は `applyResponsiveLayout()` が `#board` の実測幅 / rows で決める。フル幅なのでモバイルでもタイルが枠にぴったり収まる(検証: 375px 幅で scale=55、盤面 335×275 内側にタイルが過不足なく収まりページはスクロール不可)。
 
 ## 4. ルート表示の仕様(現行実装)
 
